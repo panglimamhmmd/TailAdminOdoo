@@ -30,7 +30,7 @@ const navItems: NavItem[] = [
   {
     icon: <GridIcon />,
     name: "Dashboard",
-    subItems: [{ name: "Ecommerce", path: "/", pro: false }],
+    subItems: [{ name: "Ecommerce", path: "/", pro: false }  , { name: "Project", path: "/project", pro: false }],
   },
   {
     icon: <CalenderIcon />,
@@ -320,10 +320,10 @@ const AppSidebar: React.FC = () => {
               />
               <Image
                 className="hidden dark:block"
-                src="/images/logo/logo-dark.svg"
+                src="/images/logo/erbe.png"
                 alt="Logo"
                 width={150}
-                height={40}
+                height={100}
               />
             </>
           ) : (
