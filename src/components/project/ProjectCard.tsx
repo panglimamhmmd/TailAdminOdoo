@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-
+// import DeadlineText from './Deadline';
 import PICList from '@/components/PIC/PICList';
 
 interface ProjectCardProps {
@@ -118,11 +118,15 @@ const ProjectCard = ({
           className="absolute w-full h-full rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-white/[0.03] p-4 md:p-5 hover:shadow-lg dark:hover:shadow-gray-900/50 transition-shadow duration-300"
           style={{ backfaceVisibility: 'hidden' }}
         >
-          <div className="mb-4 md:mb-6 min-h-[3rem] md:min-h-[3.5rem] flex items-start">
-            <h3 className="text-base md:text-lg xl:text-xl font-bold text-gray-800 dark:text-white line-clamp-2">
+          <div className="mb-4 md:mb-6 min-h-[3rem] md:min-h-[3.5rem] flex justify-center items-start">
+            <h3
+              className="text-base md:text-lg xl:text-xl font-bold text-gray-800 dark:text-white truncate max-w-[90%] text-center"
+              title={projectName} // biar kalau di-hover muncul full text-nya
+            >
               {projectName}
             </h3>
           </div>
+
 
           <div className="space-y-3 md:space-y-4 mb-4 md:mb-6">
             <DoubleProgressBar 
@@ -142,7 +146,14 @@ const ProjectCard = ({
             />
           </div>
 
-          <h3 className="text-center text-sm text-gray-500 dark:text-gray-400">BAST: 30 May 2023</h3>
+
+          <h3 className="text-center text-sm text-gray-500 dark:text-gray-400">BAST: - </h3>  
+          {/* <DeadlineText 
+            deadlineDesign={deadlineDesign}
+            deadlineConstruction={deadlineConstruction}
+            deadlineInterior={deadlineInterior}
+          />
+       */}
         </div>
 
         {/* Back Side */}
@@ -153,8 +164,8 @@ const ProjectCard = ({
             transform: 'rotateY(180deg)'
           }}
         >
-          <div className="mb-3 md:mb-4">
-            <h3 className="text-base md:text-lg font-bold text-gray-800 dark:text-white mb-1 line-clamp-2">
+          <div className=" md:mb-4">
+            <h3 className="text-base md:text-lg font-bold text-gray-800 dark:text-white mb-1 line-clamp-2 truncate max-w-[90%] ">
               {projectName}
             </h3>
           </div>
