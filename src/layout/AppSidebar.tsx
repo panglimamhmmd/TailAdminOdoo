@@ -313,14 +313,14 @@ const AppSidebar: React.FC = () => {
             <>
               <Image
                 className="dark:hidden"
-                src="/images/logo/logo.svg"
+                src="/images/logo/Erbe_Logo_Black.png"
                 alt="Logo"
                 width={150}
-                height={40}
+                height={100}
               />
               <Image
                 className="hidden dark:block"
-                src="/images/logo/erbe.png"
+                src="/images/logo/Erbe_Logo_White.png"
                 alt="Logo"
                 width={150}
                 height={100}
@@ -328,7 +328,7 @@ const AppSidebar: React.FC = () => {
             </>
           ) : (
             <Image
-              src="/images/logo/logo-icon.svg"
+              src="/images/logo/Erbe_Logo_Black.png"
               alt="Logo"
               width={32}
               height={32}
