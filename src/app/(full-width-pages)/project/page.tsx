@@ -134,7 +134,7 @@ export default function ProjectList() {
   useEffect(() => {
     const interval = setInterval(() => {
       setCurrentPairIndex((prev) => {
-        const nextIndex = (prev + 2) % totalCards;
+        const nextIndex = (prev +  1  ) % totalCards;
         return nextIndex;
       });
     }, 6000);
@@ -147,7 +147,7 @@ export default function ProjectList() {
     
     // Add current pair (dengan handling circular)
     newFlippedCards.add(currentPairIndex);
-    newFlippedCards.add((currentPairIndex + 1) % totalCards);
+    newFlippedCards.add((currentPairIndex ) % totalCards);
     setFlippedCards(newFlippedCards);
   }, [currentPairIndex, totalCards]);
 
