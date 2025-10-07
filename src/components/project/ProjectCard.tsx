@@ -84,7 +84,7 @@ const ProjectCard = ({
         </div>
         <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden relative">
           <div
-            className="absolute top-0 left-0 h-full bg-gray-400 dark:bg-gray-600 rounded-full transition-all duration-300"
+            className="absolute top-0 left-0 h-full bg-gray-400 dark:bg-gray-400 rounded-full transition-all duration-300"
             style={{ width: `${timeProgress}%` }}
           />
           <div
