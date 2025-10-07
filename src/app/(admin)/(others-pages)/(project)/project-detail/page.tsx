@@ -22,7 +22,12 @@ interface ProgressItem {
 }
 
 
-
+const EMPTY_TAB: TabContent = {
+  title: '',
+  description: '',
+  items: [],
+  details: [],
+};
 
 interface TabContent {
   
@@ -54,12 +59,13 @@ interface Invoice {
   dueDate: string;
 }
 
-type TabContentMap = {
+type TabContentMap = Partial<{
   [K in Tab['id']]: TabContent;
-};
+}>;
 
 export default function ProjectDetails(): React.JSX.Element {
   const [activeTab, setActiveTab] = useState<Tab['id']>('design');
+  
 
   // Sample project data
   const projectData: ProjectData = {
@@ -304,14 +310,14 @@ export default function ProjectDetails(): React.JSX.Element {
             <>
               <div className="mb-6">
                 <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
-                  {tabContent[activeTab].title}
+                  {(tabContent[activeTab] ?? EMPTY_TAB).title}
                 </h3>
-                <p className="text-gray-600 dark:text-gray-400">{tabContent[activeTab].description}</p>
+                <p className="text-gray-600 dark:text-gray-400">{(tabContent[activeTab] ?? EMPTY_TAB).description}</p>
               </div>
 
               {/* Progress Items */}
               <div className="space-y-4 mb-6">
-                {tabContent[activeTab].items.map((item, index) => (
+                {tabContent[activeTab]?.items.map((item, index) => (
                   <div key={index} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
                     <div className="flex justify-between items-center mb-3">
                       <span className="font-medium text-gray-900 dark:text-white">{item.label}</span>
@@ -338,7 +344,7 @@ export default function ProjectDetails(): React.JSX.Element {
               <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
                 <h4 className="font-semibold text-gray-900 dark:text-white mb-3">Detail Informasi</h4>
                 <ul className="space-y-2">
-                  {tabContent[activeTab].details.map((detail, index) => (
+                  {(tabContent[activeTab] ?? EMPTY_TAB).details.map((detail, index) => (
                     <li key={index} className="flex items-start text-sm text-gray-700 dark:text-gray-300">
                       <span className="inline-block w-2 h-2 bg-blue-600 dark:bg-blue-400 rounded-full mt-1.5 mr-3 flex-shrink-0" />
                       {detail}
