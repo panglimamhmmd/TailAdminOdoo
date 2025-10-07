@@ -82,7 +82,7 @@ const ProjectCard = ({
             {actualProgress}%
           </span>
         </div>
-        <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden relative">
+        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden relative">
           <div
             className="absolute top-0 left-0 h-full bg-gray-400 dark:bg-gray-600 rounded-full transition-all duration-300"
             style={{ width: `${timeProgress}%` }}
@@ -147,7 +147,7 @@ const ProjectCard = ({
           </div>
 
 
-          <h3 className="text-center text-sm text-gray-500 dark:text-gray-400">BAST: - </h3>  
+          {/* <h3 className="text-center text-sm text-gray-500 dark:text-gray-400">BAST: - </h3>   */}
           {/* <DeadlineText 
             deadlineDesign={deadlineDesign}
             deadlineConstruction={deadlineConstruction}

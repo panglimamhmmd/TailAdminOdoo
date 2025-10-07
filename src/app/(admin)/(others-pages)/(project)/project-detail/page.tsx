@@ -30,7 +30,6 @@ const EMPTY_TAB: TabContent = {
 };
 
 interface TabContent {
-  
   title: string;
   description: string;
   items: ProgressItem[];
@@ -505,4 +504,4 @@ export default function ProjectDetails(): React.JSX.Element {
       </div>
     </div>
   );
-}
+} 
