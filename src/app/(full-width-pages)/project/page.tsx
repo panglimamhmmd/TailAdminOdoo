@@ -23,105 +23,6 @@ export default function ProjectList() {
   const [currentPairIndex, setCurrentPairIndex] = useState(0);
   const [projects, setProjects] = useState<ProjectProgress[]>([]);
 
-  // const projek = [
-  //   {
-  //     name: "Villa Modern Minimalis",
-  //     progressDesign: 20,
-  //     progressConstruction: 60,
-  //     progressInterior: 30,
-  //     deadlineDesign: "2025-12-31",
-  //     deadlineConstruction: "2026-06-30",
-  //     deadlineInterior: "2026-12-31",
-  //     startDateDesign: "2025-01-01",
-  //     startDateConstruction: "2025-06-01",
-  //     startDateInterior: "2026-01-01",
-  //   },
-  //   {
-  //     name: "Rumah Tropis Bali",
-  //     progressDesign: 75,
-  //     progressConstruction: 45,
-  //     progressInterior: 10,
-  //     deadlineDesign: "2025-11-30",
-  //     deadlineConstruction: "2026-05-31",
-  //     deadlineInterior: "2026-10-31",
-  //     startDateDesign: "2025-02-01",
-  //     startDateConstruction: "2025-07-01",
-  //     startDateInterior: "2026-02-01",
-  //   },
-  //   {
-  //     name: "Apartemen High Rise",
-  //     progressDesign: 90,
-  //     progressConstruction: 30,
-  //     progressInterior: 5,
-  //     deadlineDesign: "2025-10-31",
-  //     deadlineConstruction: "2026-04-30",
-  //     deadlineInterior: "2026-09-30",
-  //     startDateDesign: "2025-03-01",
-  //     startDateConstruction: "2025-08-01",
-  //     startDateInterior: "2026-03-01",
-  //   },
-  //   {
-  //     name: "Office Building",
-  //     progressDesign: 50,
-  //     progressConstruction: 20,
-  //     progressInterior: 0,
-  //     deadlineDesign: "2025-09-30",
-  //     deadlineConstruction: "2026-03-31",
-  //     deadlineInterior: "2026-08-31",
-  //     startDateDesign: "2025-04-01",
-  //     startDateConstruction: "2025-09-01",
-  //     startDateInterior: "2026-04-01",
-  //   },
-  //   {
-  //     name: "Boutique Hotel",
-  //     progressDesign: 65,
-  //     progressConstruction: 40,
-  //     progressInterior: 15,
-  //     deadlineDesign: "2025-08-31",
-  //     deadlineConstruction: "2026-02-28",
-  //     deadlineInterior: "2026-07-31",
-  //     startDateDesign: "2025-05-01",
-  //     startDateConstruction: "2025-10-01",
-  //     startDateInterior: "2026-05-01",
-  //   },
-  //   {
-  //     name: "Shopping Mall",
-  //     progressDesign: 80,
-  //     progressConstruction: 55,
-  //     progressInterior: 25,
-  //     deadlineDesign: "2025-07-31",
-  //     deadlineConstruction: "2026-01-31",
-  //     deadlineInterior: "2026-06-30",
-  //     startDateDesign: "2025-06-01",
-  //     startDateConstruction: "2025-11-01",
-  //     startDateInterior: "2026-06-01",
-  //   },
-  //   {
-  //     name: "Villa Modern Minimalis 2",
-  //     progressDesign: 35,
-  //     progressConstruction: 15,
-  //     progressInterior: 5,
-  //     deadlineDesign: "2025-12-31",
-  //     deadlineConstruction: "2026-06-30",
-  //     deadlineInterior: "2026-12-31",
-  //     startDateDesign: "2025-01-01",
-  //     startDateConstruction: "2025-06-01",
-  //     startDateInterior: "2026-01-01",
-  //   },
-  //   {
-  //     name: "Residential Complex",
-  //     progressDesign: 45,
-  //     progressConstruction: 25,
-  //     progressInterior: 10,
-  //     deadlineDesign: "2025-11-30",
-  //     deadlineConstruction: "2026-05-31",
-  //     deadlineInterior: "2026-11-30",
-  //     startDateDesign: "2025-02-01",
-  //     startDateConstruction: "2025-07-01",
-  //     startDateInterior: "2026-02-01",
-  //   },
-  // ];
-
   const fetchProjects = async () => {
     // Simulasi fetch data dari API
     const response = await fetch('/api/projectList');
@@ -176,7 +77,7 @@ export default function ProjectList() {
         </div>
       </div>
     
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-7">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-8">
         {projects.map((project, index) => (
           <ProjectCard
             key={index}

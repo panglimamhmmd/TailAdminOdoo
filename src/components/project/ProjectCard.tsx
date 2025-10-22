@@ -73,12 +73,12 @@ const ProjectCard = ({
     const progressColor = isAhead ? 'bg-green-500' : 'bg-red-500';
     
     return (
-      <div className="space-y-2">
+      <div className="space-y-1">
         <div className="flex items-center justify-between">
-          <span className="text-lg font-medium text-gray-700 dark:text-gray-300">
+          <span className="text-md font-medium text-gray-700 dark:text-gray-300">
             {label}
           </span>
-          <span className="text-lg font-semibold text-gray-800 dark:text-white">
+          <span className="text-md font-semibold text-gray-800 dark:text-white">
             {actualProgress}%
           </span>
         </div>
@@ -115,7 +115,7 @@ const ProjectCard = ({
       >
         {/* Front Side */}
         <div 
-          className="absolute w-full h-full rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-white/[0.03] p-4 md:p-5 hover:shadow-lg dark:hover:shadow-gray-900/50 transition-shadow duration-300"
+          className="absolute w-full h-full rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-white/[0.03] p-4 md:p-4 hover:shadow-lg dark:hover:shadow-gray-900/50 transition-shadow duration-300"
           style={{ backfaceVisibility: 'hidden' }}
         >
           <div className="mb-4 md:mb-6 min-h-[3rem] md:min-h-[3.5rem] flex justify-center items-start">
@@ -145,15 +145,6 @@ const ProjectCard = ({
               timeProgress={timeProgressInterior}
             />
           </div>
-
-
-          {/* <h3 className="text-center text-sm text-gray-500 dark:text-gray-400">BAST: - </h3>   */}
-          {/* <DeadlineText 
-            deadlineDesign={deadlineDesign}
-            deadlineConstruction={deadlineConstruction}
-            deadlineInterior={deadlineInterior}
-          />
-       */}
         </div>
 
         {/* Back Side */}

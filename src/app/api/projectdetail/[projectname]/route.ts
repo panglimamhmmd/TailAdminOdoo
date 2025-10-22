@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
 
+// ✅ KRITIS: Disable static generation untuk route ini
+export const dynamic = 'force-dynamic';
+
 // Types
 interface OdooResponse {
   jsonrpc: string;
@@ -26,6 +29,8 @@ interface ProjectDetail {
   date_start?: string;
   date?: string;
   tag_ids?: [number, string][];
+  x_studio_related_field_180_1j3l9t4is?: string;
+  x_progress_project?: number;
 }
 
 interface AccountMove {
@@ -46,6 +51,7 @@ interface ProjectTask {
   user_ids?: number[];
   date_deadline?: string;
   priority?: string;
+  x_studio_persentase?: number;
 }
 
 interface PaymentStatusGroup {
@@ -95,8 +101,9 @@ async function fetchOdooData<T>(
 ): Promise<T[]> {
   const apiKey = process.env.ODOO_API_KEY_PROD;
   if (!apiKey) {
-    throw new Error("ODOO_API_KEY is not configured");
+    throw new Error("ODOO_API_KEY_PROD is not configured");
   }
+
   const response = await fetch("https://erbe.odoo.com/jsonrpc", {
     method: "POST",
     headers: {
@@ -138,6 +145,56 @@ async function fetchOdooData<T>(
   return data.result as T[];
 }
 
+// Helper function untuk search project
+async function searchProjectByName(projectName: string): Promise<ProjectBasic[]> {
+  const apiKey = process.env.ODOO_API_KEY_PROD;
+  if (!apiKey) {
+    throw new Error("ODOO_API_KEY_PROD is not configured");
+  }
+
+  const response = await fetch("https://erbe.odoo.com/jsonrpc", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      method: "call",
+      params: {
+        service: "object",
+        method: "execute_kw",
+        args: [
+          "erbe",
+          2,
+          apiKey,
+          "project.project",
+          "search_read",
+          [
+            [["name", "ilike", projectName]]
+          ],
+          {
+            fields: ["id", "name"],
+            limit: 10
+          }
+        ]
+      },
+      id: 1
+    })
+  });
+
+  if (!response.ok) {
+    throw new Error(`HTTP error! status: ${response.status}`);
+  }
+
+  const data = await response.json() as OdooResponse;
+
+  if (data.error) {
+    throw new Error(data.error.data.message || "Odoo API error");
+  }
+
+  return data.result as ProjectBasic[];
+}
+
 // Function untuk grouping dan aggregation invoices
 function groupAndSummarizeInvoices(invoices: AccountMove[]): InvoiceSummary {
   const journalMap = new Map<number, JournalGroup>();
@@ -149,7 +206,6 @@ function groupAndSummarizeInvoices(invoices: AccountMove[]): InvoiceSummary {
     const partnerName = invoice.partner_id?.[1] || "Unknown Partner";
     const amount = invoice.amount_total || 0;
     
-    // Tentukan status pembayaran
     let paymentStatus = "unpaid";
     if (invoice.payment_state === "paid" || invoice.state === "paid") {
       paymentStatus = "paid";
@@ -161,7 +217,6 @@ function groupAndSummarizeInvoices(invoices: AccountMove[]): InvoiceSummary {
       paymentStatus = "partial";
     }
 
-    // Get or create journal group
     if (!journalMap.has(journalId)) {
       journalMap.set(journalId, {
         journal_id: journalId,
@@ -175,7 +230,6 @@ function groupAndSummarizeInvoices(invoices: AccountMove[]): InvoiceSummary {
 
     const journalGroup = journalMap.get(journalId)!;
     
-    // Find or create partner group
     let partnerGroup = journalGroup.partners.find(p => p.partner_id === partnerId);
     if (!partnerGroup) {
       partnerGroup = {
@@ -188,7 +242,6 @@ function groupAndSummarizeInvoices(invoices: AccountMove[]): InvoiceSummary {
       journalGroup.partners.push(partnerGroup);
     }
 
-    // Find or create payment status group
     let statusGroup = partnerGroup.payment_statuses.find(s => s.status === paymentStatus);
     if (!statusGroup) {
       statusGroup = {
@@ -199,7 +252,6 @@ function groupAndSummarizeInvoices(invoices: AccountMove[]): InvoiceSummary {
       partnerGroup.payment_statuses.push(statusGroup);
     }
 
-    // Update amounts and counts
     statusGroup.total_amount += amount;
     statusGroup.invoice_count += 1;
     partnerGroup.total_amount += amount;
@@ -207,7 +259,6 @@ function groupAndSummarizeInvoices(invoices: AccountMove[]): InvoiceSummary {
     journalGroup.total_amount += amount;
     journalGroup.invoice_count += 1;
 
-    // Update journal summary by status
     let journalStatusGroup = journalGroup.summary_by_status.find(s => s.status === paymentStatus);
     if (!journalStatusGroup) {
       journalStatusGroup = {
@@ -234,63 +285,14 @@ function groupAndSummarizeInvoices(invoices: AccountMove[]): InvoiceSummary {
 
 export async function GET(
   request: Request,
-  { params }: { params: { projectname: string } }
+  { params }: { params: Promise<{ projectname: string }> }
 ) {
-  const { projectname } = params;
-
-  // Decode URL parameter (untuk handle spasi dan karakter khusus)
+  const { projectname } = await params;
   const decodedProjectName = decodeURIComponent(projectname);
 
   try {
-    // Fetch data dari Odoo API
-    const response = await fetch("https://erbe.odoo.com/jsonrpc", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        jsonrpc: "2.0",
-        method: "call",
-        params: {
-          service: "object",
-          method: "execute_kw",
-          args: [
-            "erbe",
-            2,
-            "cde052ee9e348b4db3f4372fb016c0bcad3947e0",
-            "project.project",
-            "search_read",
-            [
-              [["name", "ilike", decodedProjectName]]
-            ],
-            {
-              fields: ["id"],
-              limit: 10
-            }
-          ]
-        },
-        id: 1
-      })
-    });
+    const projects = await searchProjectByName(decodedProjectName);
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const data = await response.json() as OdooResponse;
-
-    // Check jika ada error dari Odoo
-    if (data.error) {
-      return NextResponse.json(
-        { error: data.error.data.message || "Odoo API error" },
-        { status: 500 }
-      );
-    }
-
-    // Ambil result dari response
-    const projects = data.result as ProjectBasic[];
-
-    // Check jika tidak ada project ditemukan
     if (!projects || projects.length === 0) {
       return NextResponse.json(
         { error: "Project not found" },
@@ -298,34 +300,29 @@ export async function GET(
       );
     }
 
-    // Nested fetch untuk setiap project ID
     const detailedProjects: DetailedProject[] = await Promise.all(
       projects.map(async (project) => {
         const projectId = project.id;
 
         try {
-          // Fetch project.project detail
           const projectDetail = await fetchOdooData<ProjectDetail>(
             "project.project",
             [["id", "=", projectId]],
-            ["id", "name", "stage_id", "user_id", "partner_id", "date_start", "date" , "tag_ids"]
+            ["id", "name", "stage_id", "user_id", "partner_id", "date_start", "date", "tag_ids" , "x_studio_related_field_180_1j3l9t4is" , "x_progress_project"]
           );
 
-          // Fetch account.move (invoices)
           const accountMoves = await fetchOdooData<AccountMove>(
             "account.move",
             [["x_studio_project_name_1", "=", projectId]],
             ["id", "name", "amount_total", "state", "invoice_date", "partner_id", "payment_state", "journal_id"]
           );
 
-          // Fetch project.task
           const projectTasks = await fetchOdooData<ProjectTask>(
             "project.task",
             [["project_id", "=", projectId]],
-            ["id", "name", "stage_id", "user_ids", "date_deadline", "priority"]
+            ["id", "name", "stage_id", "user_ids", "date_deadline", "priority" , "x_studio_persentase"]
           );
 
-          // Create invoice summary
           const invoiceSummary = groupAndSummarizeInvoices(accountMoves);
 
           return {
@@ -355,7 +352,7 @@ export async function GET(
       })
     );
 
-    // Return hasil pencarian dengan detail lengkap
+
     return NextResponse.json({
       success: true,
       count: projects.length,

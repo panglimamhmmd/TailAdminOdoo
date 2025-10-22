@@ -9,7 +9,7 @@ const ROLE_COLOR_MAP: Record<string, string> = {
   PGWS: "bg-yellow-500",
 };
 
-export default function     PICList({ projectName }: { projectName: string }) {
+export default function       PICList({ projectName }: { projectName: string }) {
   if (!PIC_MAP || typeof PIC_MAP !== "object") {
     console.error("❌ PIC_MAP is undefined or not an object");
     return (
@@ -35,7 +35,7 @@ export default function     PICList({ projectName }: { projectName: string }) {
     );
   });
 
-  console.log("✅ Matched key:", matchedKey);
+  // console.log("✅ Matched key:", matchedKey)
 
   const projectPICs: ProjectPIC | undefined = matchedKey
     ? PIC_MAP[matchedKey]
@@ -57,7 +57,7 @@ export default function     PICList({ projectName }: { projectName: string }) {
         return (
           <div
             key={role}
-            className="bg-white p-2 px-7 dark:bg-gray-900 rounded-lg shadow-sm border border-indigo-100 dark:border-indigo-900 flex items-center justify-between"
+            className="bg-white py-2 px-1 dark:bg-gray-900 rounded-lg shadow-sm border border-indigo-100 dark:border-indigo-900 flex items-center justify-around"
           >
             <div className="flex items-center gap-2">
               <div className={`w-2 h-2 rounded-full ${colorClass}`}></div>
