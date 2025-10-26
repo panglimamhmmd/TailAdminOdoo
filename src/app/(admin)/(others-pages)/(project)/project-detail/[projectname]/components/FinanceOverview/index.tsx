@@ -19,15 +19,12 @@ export const FinanceOverview: React.FC<FinanceOverviewProps> = ({ project }) => 
       {/* Section Header */}
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100">
+          <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">
             Finance Overview
           </h3>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-            Executive summary — key financial KPIs for decision making
+          <p className="text-md text-gray-500 dark:text-gray-400 mt-1">
+            Executive summary — key financial KPIs
           </p>
-        </div>
-        <div className="text-xs text-gray-500 dark:text-gray-400">
-          Per-tab finance (Design/Construction/Interior)
         </div>
       </div>
 

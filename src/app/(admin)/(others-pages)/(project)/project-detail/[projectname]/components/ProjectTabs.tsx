@@ -13,6 +13,7 @@ const TAB_CONFIG: { id: TabType; label: string; icon: string }[] = [
   { id: "interior", label: "Interior", icon: "🏠" },
 ];
 
+
 export const ProjectTabs: React.FC<ProjectTabsProps> = ({
   activeTab,
   onTabChange,
@@ -24,7 +25,7 @@ export const ProjectTabs: React.FC<ProjectTabsProps> = ({
           <button
             key={tab.id}
             onClick={() => onTabChange(tab.id)}
-            className={`py-3 font-medium text-sm border-b-2 transition-all ${
+            className={`py-3 font-normal text-xl border-b-2 transition-all ${
               activeTab === tab.id
                 ? "text-blue-600 dark:text-blue-400 border-blue-600 dark:border-blue-400 bg-white dark:bg-gray-900"
                 : "text-gray-600 dark:text-gray-400 border-transparent hover:bg-gray-100 dark:hover:bg-gray-800"

@@ -11,29 +11,29 @@ export const KPICards: React.FC<KPICardsProps> = ({ summary }) => {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
       {/* Total Contract */}
-      <div className="p-4 rounded-lg bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-700 shadow-sm">
-        <div className="text-xs text-gray-500 dark:text-gray-400">
-          🏷️ Total Contract Value (RAB)
+      <div className="p-4 rounded-lg bg-green dark:bg-gray-900 border border-gray-100 dark:border-gray-700 shadow-sm">
+        <div className="text-md text-gray-500 dark:text-gray-400">
+          Contract Value (RAB)
         </div>
         <div className="mt-2 flex items-end justify-between">
           <div>
-            <div className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+            <div className="text-xl font-semibold text-gray-900 dark:text-gray-100">
               {formatCurrency(summary.totalContract)}
             </div>
-            <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            {/* <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
               Baseline (RAB)
-            </div>
+            </div> */}
           </div>
-          <div className="text-sm px-2 py-1 rounded-md bg-blue-50 dark:bg-blue-900/10 text-blue-600">
+          {/* <div className="text-sm px-2 py-1 rounded-md bg-blue-50 dark:bg-blue-900/10 text-blue-600">
             RAP: {formatCurrency(summary.totalRAP)}
-          </div>
+          </div> */}
         </div>
       </div>
 
       {/* Total Realization */}
       <div className="p-4 rounded-lg bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-700 shadow-sm">
         <div className="text-xs text-gray-500 dark:text-gray-400">
-          💸 Total Realization (RAB Actual)
+          💸 Total Realization (Project Cost)
         </div>
         <div className="mt-2 flex items-end justify-between">
           <div>
@@ -44,9 +44,9 @@ export const KPICards: React.FC<KPICardsProps> = ({ summary }) => {
               Realized cost (all cost journals)
             </div>
           </div>
-          <div className="text-sm px-2 py-1 rounded-md bg-red-50 dark:bg-red-900/10 text-red-600">
+          {/* <div className="text-sm px-2 py-1 rounded-md bg-red-50 dark:bg-red-900/10 text-red-600">
             Realized
-          </div>
+          </div> */}
         </div>
       </div>
 

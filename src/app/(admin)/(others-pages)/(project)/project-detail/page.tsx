@@ -5,16 +5,10 @@ interface PageProps {
     projectname: string;
   }>;
 }
-
 export default function ProjectDetailPage({ }: PageProps) {
-
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      
-
-      {/* Hint Card */}
-      <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-6 flex items-start gap-4">
+    <div className="flex items-center justify-center min-h-screen">
+      <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-6 flex items-start gap-4 max-w-lg">
         <Zap className="w-6 h-6 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-1" />
         <div>
           <h3 className="font-semibold text-blue-900 dark:text-blue-300 mb-2">

@@ -18,7 +18,8 @@ export default function GridShape() {
           height={254}
           src="/images/shape/grid-01.svg"
           alt="grid"
-        />
+          
+          />
       </div>
     </>
   );

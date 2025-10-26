@@ -107,7 +107,7 @@ export const computeFinanceSummary = (
 
   // RAP / RAB parsing
   const totalContract = safeNum(project.project?.x_studio_related_field_180_1j3l9t4is);
-  const totalRAP = Math.round(totalContract * 0.2);
+  const totalRAP = Math.round(totalContract * 0.8);
 
   const budgetBurnRate = totalRAP > 0 ? (totalCosts / totalRAP) * 100 : 0;
   const variancePct = totalRAP > 0 ? ((totalRAP - totalCosts) / totalRAP) * 100 : 0;
