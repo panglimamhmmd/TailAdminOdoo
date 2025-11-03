@@ -23,7 +23,7 @@ export const FinanceOverview: React.FC<FinanceOverviewProps> = ({ project }) => 
             Finance Overview
           </h3>
           <p className="text-md text-gray-500 dark:text-gray-400 mt-1">
-            Executive summary — key financial KPIs
+            Executive summary - key financial KPIs
           </p>
         </div>
       </div>
@@ -35,7 +35,7 @@ export const FinanceOverview: React.FC<FinanceOverviewProps> = ({ project }) => 
       <ProgressHealthRow summary={summary} project={project} />
 
       {/* Cash Flow & Expense */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-2">
         <CashFlowSnapshot summary={summary} />
         <ExpenseBreakdown summary={summary} />
       </div>

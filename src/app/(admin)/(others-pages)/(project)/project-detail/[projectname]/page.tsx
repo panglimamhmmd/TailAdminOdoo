@@ -28,6 +28,13 @@ export default function ProjectDetailsPage({
     refetch,
   } = useProjectData(projectName);
 
+  const progressDesign = projects[0]?.project?.x_progress_project ?? 0;
+  const progressConstruction = projects[1]?.project?.x_progress_project ?? 0;
+  const progressInterior = projects[2]?.project.x_progress_project ?? 0;
+  console.log(progressConstruction, "progressConstruction Anjasmaradita");
+  console.log(progressInterior, "progressInterior");
+  console.log(progressDesign, "progressDesign");
+
   const renderProjectContent = (project: DetailedProject | undefined) => {
     if (!project) {
       return (
@@ -36,6 +43,8 @@ export default function ProjectDetailsPage({
         </div>
       );
     }
+
+    console.log("Rendering content for project:", project);
 
     return (
       <div>

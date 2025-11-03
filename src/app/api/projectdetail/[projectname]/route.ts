@@ -124,7 +124,7 @@ async function fetchOdooData<T>(
           [domain],
           {
             fields: fields,
-            limit: 100
+            limit: 1000
           }
         ]
       },
@@ -174,7 +174,7 @@ async function searchProjectByName(projectName: string): Promise<ProjectBasic[]>
           ],
           {
             fields: ["id", "name"],
-            limit: 10
+            limit: 1000
           }
         ]
       },

@@ -1,7 +1,6 @@
 // components/ProjectProgress.tsx
 import React from "react";
 import { MOCK_STAGES } from "../utils/constant";
-import PICList from "@/components/PIC/PICList";
 
 interface ProgressBarProps {
   label: string;
@@ -66,7 +65,6 @@ export const ProjectProgress: React.FC = () => {
         </div>
       </div>
     </div>
-        <PICList projectName="Osso" />
     </div>
     
    

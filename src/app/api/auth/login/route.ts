@@ -11,8 +11,8 @@ export async function POST(request: Request) {
     const validUsername = process.env.ADMIN_USERNAME;
     const validPassword = process.env.ADMIN_PASSWORD;
 
-    console.log('Login attempt:', { username, password });
-    console.log('Expected:', { validUsername, validPassword });
+    // console.log('Login attempt:', { username, password });
+    // console.log('Expected:', { validUsername, validPassword });
 
     if (!validUsername || !validPassword) {
       return NextResponse.json(

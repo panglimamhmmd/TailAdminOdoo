@@ -11,7 +11,7 @@ interface InfoItemProps {
 const InfoItem: React.FC<InfoItemProps> = ({ label, value, color = "" }) => (
   <div>
     <p className="text-sm text-gray-500 dark:text-gray-400">{label}</p>
-    <p className={`text-lg font-semibold text-gray-900 dark:text-gray-100 mt-1 ${color}`}>
+    <p className={`text-lg font-semibold text-gray-900 dark:text-gray-100  ${color}`}>
       {value}
     </p>
   </div>
@@ -19,7 +19,7 @@ const InfoItem: React.FC<InfoItemProps> = ({ label, value, color = "" }) => (
 
 export const ProjectInfoCards: React.FC = () => {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-5">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 ">
       {/* Timeline Card */}
       <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-6 shadow-sm transition-all hover:shadow-md">
         <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-6">
