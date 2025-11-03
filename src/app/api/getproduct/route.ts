@@ -22,7 +22,7 @@ interface OdooResponse<T> {
 
 export async function GET() {
   try {
-    const apiKey = process.env.ODOO_API_KEY_DEMO;
+    const apiKey = process.env.ODOO_API_KEY_PROD;
 
     if (!apiKey) {
       return NextResponse.json(
@@ -87,7 +87,7 @@ export async function GET() {
     service: 'object',
     method: 'execute_kw',
     args: [
-      'erbe-trial5',
+      'erbe',
       2,
       apiKey,
       'uom.uom',
