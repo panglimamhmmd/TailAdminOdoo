@@ -1,9 +1,8 @@
-'use client'
-import React, { useState } from 'react';
+'use client';
+import React, { useState, CSSProperties } from 'react';
 import * as XLSX from 'xlsx';
 
-
-// Tambahkan interface di atas component
+// Interfaces
 interface ExcelRow {
   so_number: string | number;
   product_name: string;
@@ -28,16 +27,66 @@ interface FormattedData {
   lines: FormattedLine[];
 }
 
-export default function OdooExcelUploader() {
-  const [file, setFile] = useState(null);
-  const [parsedData, setParsedData] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [response, setResponse] = useState(null);
-  const [error, setError] = useState(null);
-  const [parseError, setParseError] = useState(null);
+interface ResponseLine {
+  success: boolean;
+  product_name: string;
+  qty?: number;
+  uom?: string;
+  price?: number;
+  product_id?: number;
+  product_created?: boolean;
+  order_line_id?: number;
+  error?: string;
+}
 
-  const handleFileUpload = (e) => {
-    const uploadedFile = e.target.files[0];
+interface ResponseResult {
+  so_number: string;
+  so_id: number;
+  so_created: boolean;
+  lines: ResponseLine[];
+}
+
+interface ApiResponse {
+  summary: {
+    total_so: number;
+    success_lines: number;
+    failed_lines: number;
+    total_lines: number;
+  };
+  results: ResponseResult[];
+}
+
+interface ApiError {
+  error: string;
+  details?: string;
+}
+
+export default function OdooExcelUploader() {
+  const [file, setFile] = useState<File | null>(null);
+  const [parsedData, setParsedData] = useState<FormattedData | null>(null);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [response, setResponse] = useState<ApiResponse | null>(null);
+  const [error, setError] = useState<ApiError | null>(null);
+  const [parseError, setParseError] = useState<string | null>(null);
+  const [showAllLines, setShowAllLines] = useState<boolean>(false);
+
+  const parsePrice = (value: string | number): number => {
+    if (typeof value === 'number') return value;
+    if (!value) return 0;
+    
+    const cleanValue = String(value)
+      .replace(/(Rp\.?|IDR)/gi, '') // handle Rp, Rp., IDR, idr
+      .replace(/\s/g, '')           // hapus semua spasi
+      .replace(/\./g, '')           // hapus titik pemisah ribuan
+      .replace(/,/g, '.')           // ubah koma jadi titik untuk desimal
+      .trim();
+
+    const parsed = parseFloat(cleanValue);
+    return isNaN(parsed) ? 0 : parsed;
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>): void => {
+    const uploadedFile = e.target.files?.[0];
     if (!uploadedFile) return;
 
     setFile(uploadedFile);
@@ -45,18 +94,17 @@ export default function OdooExcelUploader() {
     setParsedData(null);
     setResponse(null);
     setError(null);
+    setShowAllLines(false);
 
     const reader = new FileReader();
-    reader.onload = (evt) => {
+    reader.onload = (evt: ProgressEvent<FileReader>): void => {
       try {
-        const bstr = evt.target.result;
+        const bstr = evt.target?.result;
         const wb = XLSX.read(bstr, { type: 'binary' });
         
-        // Ambil sheet pertama
         const wsname = wb.SheetNames[0];
         const ws = wb.Sheets[wsname];
         
-        // Convert ke JSON
         const data = XLSX.utils.sheet_to_json(ws, { defval: '' }) as ExcelRow[];
         
         if (data.length === 0) {
@@ -64,7 +112,6 @@ export default function OdooExcelUploader() {
           return;
         }
 
-        // Validasi kolom yang diperlukan
         const requiredColumns = ['so_number', 'product_name', 'description', 'qty', 'uom', 'price_unit', 'discount'];
         const firstRow = data[0];
         const availableColumns = Object.keys(firstRow);
@@ -76,29 +123,28 @@ export default function OdooExcelUploader() {
           return;
         }
 
-        // Transform data ke format yang sesuai
-          const formattedData: FormattedData = {
-        lines: data.map((row: ExcelRow) => ({
-          so_number: String(row.so_number || '').trim(),
-          product_name: String(row.product_name || '').trim(),
-          description: String(row.description || '').trim(),
-          qty: parseFloat(String(row.qty)) || 0,
-          uom: String(row.uom || '').trim(),
-          price_unit: parseFloat(String(row.price_unit)) || 0,
-          discount: parseFloat(String(row.discount)) || 0
-        }))
-      };
+        const formattedData: FormattedData = {
+          lines: data.map((row: ExcelRow) => ({
+            so_number: String(row.so_number || '').trim(),
+            product_name: String(row.product_name || '').trim(),
+            description: String(row.description || '').trim(),
+            qty: parseFloat(String(row.qty)) || 0,
+            uom: String(row.uom || '').trim(),
+            price_unit: parsePrice(row.price_unit),
+            discount: parseFloat(String(row.discount)) || 0
+          }))
+        };
 
         setParsedData(formattedData);
       } catch (err) {
-        setParseError(`Error parsing file: ${err.message}`);
+        const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+        setParseError(`Error parsing file: ${errorMessage}`);
       }
     };
     reader.readAsBinaryString(uploadedFile);
   };
 
-
-  const handleSubmit = async () => {
+  const handleSubmit = async (): Promise<void> => {
     if (!parsedData) return;
 
     setLoading(true);
@@ -112,34 +158,41 @@ export default function OdooExcelUploader() {
         body: JSON.stringify(parsedData)
       });
 
-      const data = await res.json();
+      const data: ApiResponse | ApiError = await res.json();
       
       if (!res.ok) {
-        setError(data);
+        setError(data as ApiError);
       } else {
-        setResponse(data);
+        setResponse(data as ApiResponse);
       }
     } catch (err) {
-      setError({ error: err.message });
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      setError({ error: errorMessage });
     } finally {
       setLoading(false);
     }
   };
 
-  const resetForm = () => {
+  const resetForm = (): void => {
     setFile(null);
     setParsedData(null);
     setResponse(null);
     setError(null);
     setParseError(null);
+    setShowAllLines(false);
+  };
+
+  const tableScrollStyle: CSSProperties = {
+    maxHeight: showAllLines ? 'none' : '500px',
+    overflowY: showAllLines ? 'visible' : 'auto'
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-8">
+    <div className="min-h-scree p-8">
       <div className="max-w-6xl mx-auto">
-        <div className="bg-white rounded-xl shadow-2xl p-8">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-8 transition-colors duration-300">
           <div className="flex items-center justify-between mb-8">
-            <h1 className="text-4xl font-bold text-gray-800">
+            <h1 className="text-4xl font-bold text-gray-800 dark:text-white">
               📊 Odoo Sales Order Creator
             </h1>
             {(parsedData || response) && (
@@ -152,27 +205,62 @@ export default function OdooExcelUploader() {
             )}
           </div>
 
-          {/* Upload Section */}
           {!parsedData && !response && (
             <div className="space-y-6">
-              {/* Instructions */}
-              <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded">
-                <h3 className="font-semibold text-blue-900 mb-2">📋 Format File Excel/Sheets:</h3>
-                <div className="text-sm text-blue-800 space-y-1">
-                  <p>File harus memiliki kolom berikut (urutan bebas):</p>
-                  <ul className="list-disc list-inside ml-4 mt-2 space-y-1">
-                    <li><code className="bg-blue-100 px-2 py-1 rounded">so_number</code> - Nomor Sales Order</li>
-                    <li><code className="bg-blue-100 px-2 py-1 rounded">product_name</code> - Nama Produk</li>
-                    <li><code className="bg-blue-100 px-2 py-1 rounded">description</code> - Deskripsi</li>
-                    <li><code className="bg-blue-100 px-2 py-1 rounded">qty</code> - Kuantitas (angka)</li>
-                    <li><code className="bg-blue-100 px-2 py-1 rounded">uom</code> - Satuan (m, m2, kg, ls, dll)</li>
-                    <li><code className="bg-blue-100 px-2 py-1 rounded">price_unit</code> - Harga satuan (angka)</li>
-                    <li><code className="bg-blue-100 px-2 py-1 rounded">discount</code> - Diskon % (angka 0-100)</li>
-                  </ul>
-                </div>
-              </div>
+           <div className="bg-blue-50 dark:bg-blue-950 border-l-4 border-blue-500 dark:border-blue-400 p-4 rounded transition-colors duration-300">
+  <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">
+    📋 Format File Excel/Sheets:
+  </h3>
+  <div className="text-sm text-blue-800 dark:text-blue-200 space-y-1">
+    <p>File harus memiliki kolom berikut (urutan bebas):</p>
+    <ul className="list-disc list-inside ml-4 mt-2 space-y-1">
+      <li>
+        <code className="bg-blue-100 dark:bg-blue-900 px-2 py-1 rounded">
+          so_number
+        </code>{" "}
+        - Nomor Sales Order 
+      </li>
+      <li>
+        <code className="bg-blue-100 dark:bg-blue-900 px-2 py-1 rounded">
+          product_name
+        </code>{" "}
+        - Nama Produk
+      </li>
+      <li>
+        <code className="bg-blue-100 dark:bg-blue-900 px-2 py-1 rounded">
+          description
+        </code>{" "}
+        - Deskripsi
+      </li>
+      <li>
+        <code className="bg-blue-100 dark:bg-blue-900 px-2 py-1 rounded">
+          qty
+        </code>{" "}
+        - Kuantitas (angka)
+      </li>
+      <li>
+        <code className="bg-blue-100 dark:bg-blue-900 px-2 py-1 rounded">
+          uom
+        </code>{" "}
+        - Satuan (m, m2, kg, ls, dll)
+      </li>
+      <li>
+        <code className="bg-blue-100 dark:bg-blue-900 px-2 py-1 rounded">
+          price_unit
+        </code>{" "}
+        - Harga satuan (angka atau format Rp)
+      </li>
+      <li>
+        <code className="bg-blue-100 dark:bg-blue-900 px-2 py-1 rounded">
+          discount
+        </code>{" "}
+        - Diskon % (angka 0-100)
+      </li>
+    </ul>
+  </div>
+</div>
 
-              {/* File Upload */}
+
               <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-500 transition-colors">
                 <input
                   type="file"
@@ -200,7 +288,6 @@ export default function OdooExcelUploader() {
                 </label>
               </div>
 
-              {/* Parse Error */}
               {parseError && (
                 <div className="bg-red-50 border border-red-200 rounded-lg p-4">
                   <div className="flex items-center">
@@ -215,7 +302,6 @@ export default function OdooExcelUploader() {
             </div>
           )}
 
-          {/* Preview Parsed Data */}
           {parsedData && !response && (
             <div className="space-y-6">
               <div className="bg-green-50 border border-green-200 rounded-lg p-4">
@@ -230,12 +316,12 @@ export default function OdooExcelUploader() {
                 </div>
               </div>
 
-              {/* Data Preview Table */}
               <div className="border border-gray-200 rounded-lg overflow-hidden">
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto" style={tableScrollStyle}>
                   <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
+                    <thead className="bg-gray-50 dark:bg-gray-950 sticky top-0">
                       <tr>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">#</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">SO Number</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Product</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Description</th>
@@ -243,33 +329,49 @@ export default function OdooExcelUploader() {
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">UoM</th>
                         <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Price</th>
                         <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Disc %</th>
+                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Subtotal</th>
                       </tr>
                     </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {parsedData.lines.slice(0, 10).map((line, idx) => (
-                        <tr key={idx} className="hover:bg-gray-50">
-                          <td className="px-4 py-3 text-sm text-gray-900">{line.so_number}</td>
-                          <td className="px-4 py-3 text-sm text-gray-900">{line.product_name}</td>
-                          <td className="px-4 py-3 text-sm text-gray-600">{line.description}</td>
-                          <td className="px-4 py-3 text-sm text-gray-900 text-right">{line.qty}</td>
-                          <td className="px-4 py-3 text-sm text-gray-900">{line.uom}</td>
-                          <td className="px-4 py-3 text-sm text-gray-900 text-right">
-                            {line.price_unit.toLocaleString('id-ID')}
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-900 text-right">{line.discount}</td>
-                        </tr>
-                      ))}
+                    <tbody className="bg-white dark:bg-black divide-y divide-gray-200">
+                      {(showAllLines ? parsedData.lines : parsedData.lines.slice(0, 10)).map((line, idx) => {
+                        const subtotal = line.qty * line.price_unit * (1 - line.discount / 100);
+                        return (
+                          <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors text-gray-900 dark:text-gray">
+                            <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-50">{idx + 1}</td>
+                            <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-50 font-medium">{line.so_number}</td>
+                            <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-50 ">{line.product_name}</td>
+                            <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-50">{line.description}</td>
+                            <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-50 text-right">{line.qty}</td>
+                            <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-50">{line.uom}</td>
+                            <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-50 text-right">
+                              Rp {line.price_unit.toLocaleString('id-ID')}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-50 text-right">{line.discount}%</td>
+                            <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-50 text-right font-semibold">
+                              Rp {subtotal.toLocaleString('id-ID')}
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
                 {parsedData.lines.length > 10 && (
-                  <div className="bg-gray-50 px-4 py-3 text-sm text-gray-600 text-center">
-                    ... and {parsedData.lines.length - 10} more lines
+                  <div className="bg-gray-50 dark:bg-gray-950 px-4 py-3 border-t border-gray-200">
+                    <button
+                      onClick={() => setShowAllLines(!showAllLines)}
+                      className="w-full py-2 px-4 bg-blue-100 dark:bg-blue-900 hover:bg-blue-200 text-blue-700 dark:text-blue-300 font-medium rounded-lg transition-colors"
+                    >
+                      {showAllLines ? (
+                        <>👆 Show Less (Collapse)</>
+                      ) : (
+                        <>👇 Show All {parsedData.lines.length} Lines</>
+                      )}
+                    </button>
                   </div>
                 )}
               </div>
 
-              {/* Submit Button */}
               <button
                 onClick={handleSubmit}
                 disabled={loading}
@@ -284,7 +386,6 @@ export default function OdooExcelUploader() {
             </div>
           )}
 
-          {/* Loading State */}
           {loading && (
             <div className="mt-6 text-center">
               <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-blue-600 border-t-transparent"></div>
@@ -292,80 +393,60 @@ export default function OdooExcelUploader() {
             </div>
           )}
 
-          {/* Success Response */}
           {response && !error && (
             <div className="space-y-6">
-              <div className="bg-green-50 border border-green-200 rounded-lg p-6">
+              <div className="bg-green-50 dark:bg-green-950 border border-green-200 rounded-lg p-6">
                 <div className="flex items-center">
                   <span className="text-4xl mr-4">✅</span>
                   <div>
-                    <h3 className="text-2xl font-semibold text-green-800">
-                      Success!
-                    </h3>
-                    <p className="text-green-700 text-lg">
-                      Created {response.summary?.success_lines} lines in {response.summary?.total_so} SO(s)
+                    <h3 className="text-2xl font-semibold text-green-800 dark:text-green-200">Success!</h3>
+                    <p className="text-green-700 dark:text-green-300 text-lg">
+                      Created {response.summary.success_lines} lines in {response.summary.total_so} SO(s)
                     </p>
                   </div>
                 </div>
               </div>
 
-              {/* Summary Cards */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="bg-blue-50 p-6 rounded-lg shadow">
                   <p className="text-sm text-gray-600 mb-1">Total SO</p>
-                  <p className="text-3xl font-bold text-blue-600">
-                    {response.summary?.total_so}
-                  </p>
+                  <p className="text-3xl font-bold text-blue-600">{response.summary.total_so}</p>
                 </div>
                 <div className="bg-green-50 p-6 rounded-lg shadow">
                   <p className="text-sm text-gray-600 mb-1">Success Lines</p>
-                  <p className="text-3xl font-bold text-green-600">
-                    {response.summary?.success_lines}
-                  </p>
+                  <p className="text-3xl font-bold text-green-600">{response.summary.success_lines}</p>
                 </div>
                 <div className="bg-red-50 p-6 rounded-lg shadow">
                   <p className="text-sm text-gray-600 mb-1">Failed Lines</p>
-                  <p className="text-3xl font-bold text-red-600">
-                    {response.summary?.failed_lines}
-                  </p>
+                  <p className="text-3xl font-bold text-red-600">{response.summary.failed_lines}</p>
                 </div>
                 <div className="bg-purple-50 p-6 rounded-lg shadow">
                   <p className="text-sm text-gray-600 mb-1">Total Lines</p>
-                  <p className="text-3xl font-bold text-purple-600">
-                    {response.summary?.total_lines}
-                  </p>
+                  <p className="text-3xl font-bold text-purple-600">{response.summary.total_lines}</p>
                 </div>
               </div>
 
-              {/* Results Details */}
               <div className="space-y-4">
-                {response.results?.map((result, idx) => (
+                {response.results.map((result: ResponseResult, idx: number) => (
                   <div key={idx} className="border border-gray-200 rounded-lg p-6 shadow-sm">
                     <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-xl font-semibold text-gray-800">
-                        SO: {result.so_number}
-                      </h3>
+                      <h3 className="text-xl font-semibold text-gray-800 dark:text-gray-200">SO: {result.so_number}</h3>
                       <span className={`px-4 py-2 rounded-full text-sm font-medium ${
-                        result.so_created 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-blue-100 text-blue-800'
+                        result.so_created ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'
                       }`}>
                         {result.so_created ? '🆕 New' : '📝 Updated'}
                       </span>
                     </div>
-                    <p className="text-sm text-gray-600 mb-4">
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
                       SO ID: <span className="font-mono font-semibold text-lg">{result.so_id}</span>
                     </p>
                     
-                    {/* Lines */}
                     <div className="space-y-3">
-                      {result.lines?.map((line, lineIdx) => (
+                      {result.lines.map((line: ResponseLine, lineIdx: number) => (
                         <div 
                           key={lineIdx} 
                           className={`p-4 rounded-lg ${
-                            line.success 
-                              ? 'bg-green-50 border border-green-200' 
-                              : 'bg-red-50 border border-red-200'
+                            line.success ? 'bg-green-50 dark:text-green-950  border border-green-200' : 'bg-red-50 dark:bg-red-950 border border-red-200'
                           }`}
                         >
                           <div className="flex items-start justify-between">
@@ -377,14 +458,12 @@ export default function OdooExcelUploader() {
                                 <div className="text-sm text-gray-600 mt-2 space-y-1">
                                   <p>Qty: {line.qty} {line.uom} × Rp {line.price?.toLocaleString('id-ID')}</p>
                                   <p>Product ID: {line.product_id} 
-                                    {line.product_created && <span className="ml-2 text-green-600 font-medium">(New Product)</span>}
+                                    {line.product_created && <span className="ml-2 text-green-600 dark:text-green-400 font-medium">(New Product)</span>}
                                   </p>
                                   <p>Order Line ID: {line.order_line_id}</p>
                                 </div>
                               ) : (
-                                <p className="text-sm text-red-600 mt-2">
-                                  Error: {line.error}
-                                </p>
+                                <p className="text-sm text-red-600 dark:text-red-400 mt-2">Error: {line.error}</p>
                               )}
                             </div>
                           </div>
@@ -395,7 +474,6 @@ export default function OdooExcelUploader() {
                 ))}
               </div>
 
-              {/* Full Response */}
               <details className="mt-6">
                 <summary className="cursor-pointer text-gray-700 font-semibold mb-3 text-lg hover:text-blue-600">
                   📋 Full Response JSON
@@ -407,15 +485,12 @@ export default function OdooExcelUploader() {
             </div>
           )}
 
-          {/* Error Response */}
           {error && (
             <div className="mt-6">
               <div className="bg-red-50 border border-red-200 rounded-lg p-6">
                 <div className="flex items-center mb-4">
                   <span className="text-4xl mr-4">❌</span>
-                  <h3 className="text-2xl font-semibold text-red-800">
-                    Error
-                  </h3>
+                  <h3 className="text-2xl font-semibold text-red-800">Error</h3>
                 </div>
                 <pre className="bg-red-100 p-4 rounded text-sm text-red-800 overflow-x-auto">
                   {JSON.stringify(error, null, 2)}

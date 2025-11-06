@@ -8,7 +8,7 @@ import ProjectInfoCards from "./components/ProjectInfo";
 import ProjectProgress from "./components/ProjectProgress";
 import ProjectTabs from "./components/ProjectTabs";
 import FinanceOverview from "./components/FinanceOverview";
-import TasksSection from "./components/TaskComponents";
+// import TasksSection from "./components/TaskComponents";
 
 export default function ProjectDetailsPage({
   params,
@@ -49,7 +49,7 @@ export default function ProjectDetailsPage({
     return (
       <div>
         <FinanceOverview project={project} />
-        <TasksSection tasks={project.tasks} tasksCount={project.tasks_count} />
+        {/* <TasksSection tasks={project.tasks} tasksCount={project.tasks_count} /> */}
       </div>
     );
   };
