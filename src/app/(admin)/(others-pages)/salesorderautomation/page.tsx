@@ -61,6 +61,15 @@ interface ApiError {
   details?: string;
 }
 
+// Summary type
+interface DataSummary {
+  totalLines: number;
+  totalQty: number;
+  grossAmount: number; // sum(qty * price_unit)
+  totalDiscountAmount: number; // sum(qty * price_unit * discount/100)
+  netAmount: number; // gross - discount
+}
+
 export default function OdooExcelUploader() {
   const [file, setFile] = useState<File | null>(null);
   const [parsedData, setParsedData] = useState<FormattedData | null>(null);
@@ -71,11 +80,12 @@ export default function OdooExcelUploader() {
   const [showAllLines, setShowAllLines] = useState<boolean>(false);
   const [pasteMode, setPasteMode] = useState<boolean>(true);
   const [pastedText, setPastedText] = useState<string>('');
+  const [confirmed, setConfirmed] = useState<boolean>(false);
 
   const parsePrice = (value: string | number): number => {
     if (typeof value === 'number') return value;
     if (!value) return 0;
-    
+
     const cleanValue = String(value)
       .replace(/(Rp\.?|IDR)/gi, '')
       .replace(/\s/g, '')
@@ -87,11 +97,46 @@ export default function OdooExcelUploader() {
     return isNaN(parsed) ? 0 : parsed;
   };
 
+  const computeSummary = (data: FormattedData | null): DataSummary => {
+    if (!data) {
+      return {
+        totalLines: 0,
+        totalQty: 0,
+        grossAmount: 0,
+        totalDiscountAmount: 0,
+        netAmount: 0
+      };
+    }
+
+    let totalQty = 0;
+    let grossAmount = 0;
+    let totalDiscountAmount = 0;
+
+    data.lines.forEach((line) => {
+      const lineGross = line.qty * line.price_unit;
+      const lineDiscountAmount = lineGross * (line.discount / 100);
+      totalQty += line.qty;
+      grossAmount += lineGross;
+      totalDiscountAmount += lineDiscountAmount;
+    });
+
+    const netAmount = grossAmount - totalDiscountAmount;
+
+    return {
+      totalLines: data.lines.length,
+      totalQty,
+      grossAmount,
+      totalDiscountAmount,
+      netAmount
+    };
+  };
+
   const parsePastedData = (text: string): void => {
     setParseError(null);
     setParsedData(null);
     setResponse(null);
     setError(null);
+    setConfirmed(false);
 
     try {
       const lines = text.trim().split('\n');
@@ -105,7 +150,7 @@ export default function OdooExcelUploader() {
 
       const requiredColumns = ['so_number', 'product_name', 'description', 'qty', 'uom', 'price_unit', 'discount'];
       const missingColumns = requiredColumns.filter(col => !headers.includes(col));
-      
+
       if (missingColumns.length > 0) {
         setParseError(`Kolom tidak lengkap. Missing: ${missingColumns.join(', ')}`);
         return;
@@ -122,15 +167,15 @@ export default function OdooExcelUploader() {
       };
 
       const dataLines = lines.slice(1).filter(line => line.trim());
-      
+
       const formattedLines: FormattedLine[] = dataLines.map((line) => {
         const cells = line.split('\t');
-        
+
         return {
           so_number: String(cells[columnIndices.so_number] || '').trim(),
           product_name: String(cells[columnIndices.product_name] || '').trim(),
           description: String(cells[columnIndices.description] || '').trim(),
-          qty: parseFloat(String(cells[columnIndices.qty] || '0')) || 0,
+          qty: parseFloat(String(cells[columnIndices.qty] || '0').replace(',', '.')) || 0,
           uom: String(cells[columnIndices.uom] || '').trim(),
           price_unit: parsePrice(cells[columnIndices.price_unit] || '0'),
           discount: parseFloat(String(cells[columnIndices.discount] || '0')) || 0
@@ -167,18 +212,19 @@ export default function OdooExcelUploader() {
     setError(null);
     setShowAllLines(false);
     setPastedText('');
+    setConfirmed(false);
 
     const reader = new FileReader();
     reader.onload = (evt: ProgressEvent<FileReader>): void => {
       try {
         const bstr = evt.target?.result;
         const wb = XLSX.read(bstr, { type: 'binary' });
-        
+
         const wsname = wb.SheetNames[0];
         const ws = wb.Sheets[wsname];
-        
+
         const data = XLSX.utils.sheet_to_json(ws, { defval: '' }) as ExcelRow[];
-        
+
         if (data.length === 0) {
           setParseError('File kosong atau tidak ada data');
           return;
@@ -186,25 +232,29 @@ export default function OdooExcelUploader() {
 
         const requiredColumns = ['so_number', 'product_name', 'description', 'qty', 'uom', 'price_unit', 'discount'];
         const firstRow = data[0];
-        const availableColumns = Object.keys(firstRow);
-        
+        const availableColumns = Object.keys(firstRow).map(k => k.toLowerCase());
+
         const missingColumns = requiredColumns.filter(col => !availableColumns.includes(col));
-        
+
         if (missingColumns.length > 0) {
           setParseError(`Kolom tidak lengkap. Missing: ${missingColumns.join(', ')}`);
           return;
         }
 
         const formattedData: FormattedData = {
-          lines: data.map((row: ExcelRow) => ({
-            so_number: String(row.so_number || '').trim(),
-            product_name: String(row.product_name || '').trim(),
-            description: String(row.description || '').trim(),
-            qty: parseFloat(String(row.qty)) || 0,
-            uom: String(row.uom || '').trim(),
-            price_unit: parsePrice(row.price_unit),
-            discount: parseFloat(String(row.discount)) || 0
-          }))
+          lines: data.map((row: ExcelRow) => {
+            const qtyValue = parseFloat(String(row.qty).replace(',', '.'));
+            const discountValue = parseFloat(String(row.discount).replace(',', '.'));
+            return {
+              so_number: String(row.so_number || '').trim(),
+              product_name: String(row.product_name || '').trim(),
+              description: String(row.description || '').trim(),
+              qty: isNaN(qtyValue) ? 0 : qtyValue,
+              uom: String(row.uom || '').trim(),
+              price_unit: parsePrice(row.price_unit),
+              discount: isNaN(discountValue) ? 0 : discountValue
+            };
+          })
         };
 
         setParsedData(formattedData);
@@ -219,6 +269,12 @@ export default function OdooExcelUploader() {
   const handleSubmit = async (): Promise<void> => {
     if (!parsedData) return;
 
+    // require confirmation
+    if (!confirmed) {
+      setParseError('Anda harus konfirmasi summary sebelum submit');
+      return;
+    }
+
     setLoading(true);
     setResponse(null);
     setError(null);
@@ -231,11 +287,13 @@ export default function OdooExcelUploader() {
       });
 
       const data: ApiResponse | ApiError = await res.json();
-      
+
       if (!res.ok) {
         setError(data as ApiError);
       } else {
         setResponse(data as ApiResponse);
+        // reset confirmation after success
+        setConfirmed(false);
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
@@ -253,12 +311,15 @@ export default function OdooExcelUploader() {
     setParseError(null);
     setShowAllLines(false);
     setPastedText('');
+    setConfirmed(false);
   };
 
   const tableScrollStyle: CSSProperties = {
     maxHeight: showAllLines ? 'none' : '500px',
     overflowY: showAllLines ? 'visible' : 'auto'
   };
+
+  const summary = computeSummary(parsedData);
 
   return (
     <div className="min-h-screen p-8 bg-gray-50 dark:bg-gray-900">
@@ -302,8 +363,8 @@ export default function OdooExcelUploader() {
                 <button
                   onClick={() => setPasteMode(true)}
                   className={`flex-1 py-3 px-4 rounded-lg font-semibold transition-all ${
-                    pasteMode 
-                      ? 'bg-blue-600 text-white shadow-lg' 
+                    pasteMode
+                      ? 'bg-blue-600 text-white shadow-lg'
                       : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300'
                   }`}
                 >
@@ -312,8 +373,8 @@ export default function OdooExcelUploader() {
                 <button
                   onClick={() => setPasteMode(false)}
                   className={`flex-1 py-3 px-4 rounded-lg font-semibold transition-all ${
-                    !pasteMode 
-                      ? 'bg-blue-600 text-white shadow-lg' 
+                    !pasteMode
+                      ? 'bg-blue-600 text-white shadow-lg'
                       : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300'
                   }`}
                 >
@@ -406,6 +467,41 @@ S00120	Meja Kotak 1	-	1	Unit	IDR 5.244.000	0"
                 </div>
               </div>
 
+              {/* Summary box */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="bg-white dark:bg-gray-900 border p-4 rounded-lg shadow-sm">
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Total Lines</p>
+                  <p className="text-2xl font-bold">{summary.totalLines}</p>
+                </div>
+                <div className="bg-white dark:bg-gray-900 border p-4 rounded-lg shadow-sm">
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Total Qty</p>
+                  <p className="text-2xl font-bold">{summary.totalQty}</p>
+                </div>
+                <div className="bg-white dark:bg-gray-900 border p-4 rounded-lg shadow-sm">
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Gross Amount</p>
+                  <p className="text-2xl font-bold">Rp {summary.grossAmount.toLocaleString('id-ID')}</p>
+                </div>
+                <div className="bg-white dark:bg-gray-900 border p-4 rounded-lg shadow-sm">
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Net Amount</p>
+                  <p className="text-2xl font-bold">Rp {summary.netAmount.toLocaleString('id-ID')}</p>
+                </div>
+              </div>
+
+              {/* Confirmation checkbox */}
+              <div className="flex items-center gap-3 mt-2">
+                <input
+                  id="confirm-checkbox"
+                  type="checkbox"
+                  checked={confirmed}
+                  onChange={(e) => setConfirmed(e.target.checked)}
+                  className="h-4 w-4"
+                />
+                <label htmlFor="confirm-checkbox" className="text-sm text-gray-700 dark:text-gray-300">
+                  Saya sudah cek summary dan data sample. Saya ingin melanjutkan ke submit.
+                </label>
+              </div>
+
+              {/* Sample preview + full table */}
               <div className="border border-gray-200 rounded-lg overflow-hidden">
                 <div className="overflow-x-auto" style={tableScrollStyle}>
                   <table className="min-w-full divide-y divide-gray-200">
@@ -464,10 +560,10 @@ S00120	Meja Kotak 1	-	1	Unit	IDR 5.244.000	0"
 
               <button
                 onClick={handleSubmit}
-                disabled={loading}
+                disabled={loading || !confirmed}
                 className={`w-full py-4 px-6 rounded-lg font-semibold text-white text-lg transition-all ${
-                  loading 
-                    ? 'bg-gray-400 cursor-not-allowed' 
+                  loading || !confirmed
+                    ? 'bg-gray-400 cursor-not-allowed'
                     : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg hover:shadow-xl'
                 }`}
               >
@@ -530,11 +626,11 @@ S00120	Meja Kotak 1	-	1	Unit	IDR 5.244.000	0"
                     <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
                       SO ID: <span className="font-mono font-semibold text-lg">{result.so_id}</span>
                     </p>
-                    
+
                     <div className="space-y-3">
                       {result.lines.map((line: ResponseLine, lineIdx: number) => (
-                        <div 
-                          key={lineIdx} 
+                        <div
+                          key={lineIdx}
                           className={`p-4 rounded-lg ${
                             line.success ? 'bg-green-50 dark:bg-green-950 border border-green-200' : 'bg-red-50 dark:bg-red-950 border border-red-200'
                           }`}
@@ -547,7 +643,7 @@ S00120	Meja Kotak 1	-	1	Unit	IDR 5.244.000	0"
                               {line.success ? (
                                 <div className="text-sm text-gray-600 dark:text-gray-400 mt-2 space-y-1">
                                   <p>Qty: {line.qty} {line.uom} × Rp {line.price?.toLocaleString('id-ID')}</p>
-                                  <p>Product ID: {line.product_id} 
+                                  <p>Product ID: {line.product_id}
                                     {line.product_created && <span className="ml-2 text-green-600 dark:text-green-400 font-medium">(New Product)</span>}
                                   </p>
                                   <p>Order Line ID: {line.order_line_id}</p>
@@ -592,4 +688,4 @@ S00120	Meja Kotak 1	-	1	Unit	IDR 5.244.000	0"
       </div>
     </div>
   );
-} 
+}

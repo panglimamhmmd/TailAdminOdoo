@@ -37,7 +37,8 @@ const navItems: NavItem[] = [
     icon: <TaskIcon />,
     name: "Odoo",
     subItems: [
-      { name: "Sales Order Automation", path: "/salesorderautomation", pro: false },
+      { name: "Sales Order Input", path: "/salesorderautomation", pro: false },
+      // { name: "Progress Input", path: "/progressautomation", pro: false },
     ],
   }
   // {
