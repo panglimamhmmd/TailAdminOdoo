@@ -38,6 +38,7 @@ const navItems: NavItem[] = [
     name: "Odoo",
     subItems: [
       { name: "Sales Order Input", path: "/salesorderautomation", pro: false },
+      { name: "Progress Input", path: "/progressinput", pro: true },
       // { name: "Progress Input", path: "/progressautomation", pro: false },
     ],
   }
@@ -219,7 +220,7 @@ const AppSidebar: React.FC = () => {
                                 : "menu-dropdown-badge-inactive"
                             } menu-dropdown-badge `}
                           >
-                            pro
+                            PM
                           </span>
                         )}
                       </span>

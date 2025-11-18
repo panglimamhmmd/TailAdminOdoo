@@ -1,18 +1,7 @@
 'use client';
 import React, { useState, CSSProperties } from 'react';
-import * as XLSX from 'xlsx';
 
 // Interfaces
-interface ExcelRow {
-  so_number: string | number;
-  product_name: string;
-  description: string;
-  qty: string | number;
-  uom: string;
-  price_unit: string | number;
-  discount: string | number;
-}
-
 interface FormattedLine {
   so_number: string;
   product_name: string;
@@ -61,40 +50,84 @@ interface ApiError {
   details?: string;
 }
 
-// Summary type
 interface DataSummary {
   totalLines: number;
   totalQty: number;
-  grossAmount: number; // sum(qty * price_unit)
-  totalDiscountAmount: number; // sum(qty * price_unit * discount/100)
-  netAmount: number; // gross - discount
+  grossAmount: number;
+  totalDiscountAmount: number;
+  netAmount: number;
 }
 
+interface ValidationWarning {
+  row: number;
+  field: string;
+  message: string;
+  value: string;
+}
+
+// Column mapping dari user-friendly ke internal
+const COLUMN_MAPPING: { [key: string]: string } = {
+  'item pekerjaan': 'product_name',
+  'harga': 'price_unit',
+  'qty': 'qty',
+  'sat': 'uom',
+  'description': 'description',
+  'discount': 'discount'
+};
+
+// Daftar UOM yang valid
+const VALID_UOMS = [
+  'pcs', 'unit', 'box', 'kg', 'gram', 'liter', 'meter', 'm', 'm2', 'm3',
+  'set', 'pack', 'roll', 'sheet', 'buah', 'batang', 'lembar', 'dus',
+  'karton', 'lusin', 'gross', 'ton', 'cm', 'mm', 'km', 'ml', 'cc',
+  'botol', 'kaleng', 'paket', 'bks', 'btl', 'rim', 'ls', 'oh'
+];
+
 export default function OdooExcelUploader() {
-  const [file, setFile] = useState<File | null>(null);
   const [parsedData, setParsedData] = useState<FormattedData | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [response, setResponse] = useState<ApiResponse | null>(null);
   const [error, setError] = useState<ApiError | null>(null);
   const [parseError, setParseError] = useState<string | null>(null);
   const [showAllLines, setShowAllLines] = useState<boolean>(false);
-  const [pasteMode, setPasteMode] = useState<boolean>(true);
   const [pastedText, setPastedText] = useState<string>('');
   const [confirmed, setConfirmed] = useState<boolean>(false);
+  const [editingCell, setEditingCell] = useState<{rowIdx: number, field: string} | null>(null);
+  const [soNumber, setSoNumber] = useState<string>('');
+  const [warnings, setWarnings] = useState<ValidationWarning[]>([]);
 
-  const parsePrice = (value: string | number): number => {
-    if (typeof value === 'number') return value;
-    if (!value) return 0;
+  const parsePrice = (value: string | number): { value: number; isAmbiguous: boolean } => {
+    if (typeof value === 'number') return { value, isAmbiguous: false };
+    if (!value) return { value: 0, isAmbiguous: false };
 
     const cleanValue = String(value)
       .replace(/(Rp\.?|IDR)/gi, '')
       .replace(/\s/g, '')
-      .replace(/\./g, '')
-      .replace(/,/g, '.')
       .trim();
 
-    const parsed = parseFloat(cleanValue);
-    return isNaN(parsed) ? 0 : parsed;
+    let isAmbiguous = false;
+    let parsed = 0;
+
+    const indonesianFormat = /^[\d.]+,\d+$/;
+    const usFormat = /^[\d,]+\.\d+$/;
+    const ambiguousFormat = /^[\d]+\.[\d]{3}$/;
+
+    if (indonesianFormat.test(cleanValue)) {
+      parsed = parseFloat(cleanValue.replace(/\./g, '').replace(',', '.'));
+    } else if (usFormat.test(cleanValue)) {
+      parsed = parseFloat(cleanValue.replace(/,/g, ''));
+    } else if (ambiguousFormat.test(cleanValue)) {
+      isAmbiguous = true;
+      parsed = parseFloat(cleanValue.replace(/\./g, ''));
+    } else {
+      const normalized = cleanValue.replace(/\./g, '').replace(',', '.');
+      parsed = parseFloat(normalized);
+    }
+
+    return { 
+      value: isNaN(parsed) ? 0 : parsed,
+      isAmbiguous
+    };
   };
 
   const computeSummary = (data: FormattedData | null): DataSummary => {
@@ -131,12 +164,23 @@ export default function OdooExcelUploader() {
     };
   };
 
+  const normalizeHeader = (header: string): string => {
+    const normalized = header.trim().toLowerCase();
+    return COLUMN_MAPPING[normalized] || normalized;
+  };
+
   const parsePastedData = (text: string): void => {
     setParseError(null);
     setParsedData(null);
     setResponse(null);
     setError(null);
     setConfirmed(false);
+    setWarnings([]);
+
+    if (!soNumber.trim()) {
+      setParseError('SO Number wajib diisi sebelum parsing data');
+      return;
+    }
 
     try {
       const lines = text.trim().split('\n');
@@ -146,44 +190,141 @@ export default function OdooExcelUploader() {
       }
 
       const headerLine = lines[0];
-      const headers = headerLine.split('\t').map(h => h.trim().toLowerCase());
-
-      const requiredColumns = ['so_number', 'product_name', 'description', 'qty', 'uom', 'price_unit', 'discount'];
-      const missingColumns = requiredColumns.filter(col => !headers.includes(col));
-
-      if (missingColumns.length > 0) {
-        setParseError(`Kolom tidak lengkap. Missing: ${missingColumns.join(', ')}`);
+      const headerCells = headerLine.split('\t');
+      
+      const emptyHeaders = headerCells.filter((h, idx) => {
+        if (idx === 0) return false;
+        if (idx === headerCells.length - 1) return false;
+        return !h.trim();
+      });
+      
+      if (emptyHeaders.length > 0) {
+        setParseError('⚠️ Terdeteksi kemungkinan merged cells. Pastikan tidak ada cell yang di-merge di Excel/Sheets sebelum copy.');
         return;
       }
 
-      const columnIndices = {
-        so_number: headers.indexOf('so_number'),
-        product_name: headers.indexOf('product_name'),
-        description: headers.indexOf('description'),
-        qty: headers.indexOf('qty'),
-        uom: headers.indexOf('uom'),
-        price_unit: headers.indexOf('price_unit'),
-        discount: headers.indexOf('discount')
-      };
+      const headers = headerCells.map(h => normalizeHeader(h));
 
-      const dataLines = lines.slice(1).filter(line => line.trim());
+      const requiredColumns = ['product_name', 'qty', 'uom', 'price_unit'];
+      const missingColumns = requiredColumns.filter(col => !headers.includes(col));
 
-      const formattedLines: FormattedLine[] = dataLines.map((line) => {
-        const cells = line.split('\t');
+      if (missingColumns.length > 0) {
+        setParseError(`Kolom wajib tidak lengkap. Missing: ${missingColumns.map(c => {
+          const found = Object.entries(COLUMN_MAPPING).find(([ v]) => v === c);
+          return found ? found[0].toUpperCase() : c;
+        }).join(', ')}`);
+        return;
+      }
 
-        return {
-          so_number: String(cells[columnIndices.so_number] || '').trim(),
-          product_name: String(cells[columnIndices.product_name] || '').trim(),
-          description: String(cells[columnIndices.description] || '').trim(),
-          qty: parseFloat(String(cells[columnIndices.qty] || '0').replace(',', '.')) || 0,
-          uom: String(cells[columnIndices.uom] || '').trim(),
-          price_unit: parsePrice(cells[columnIndices.price_unit] || '0'),
-          discount: parseFloat(String(cells[columnIndices.discount] || '0')) || 0
-        };
+      const columnIndices: { [key: string]: number } = {};
+      headers.forEach((header, idx) => {
+        columnIndices[header] = idx;
       });
 
+      const dataLines = lines.slice(1).filter(line => line.trim());
+      const formattedLines: FormattedLine[] = [];
+      const newWarnings: ValidationWarning[] = [];
+
+      dataLines.forEach((line, lineIdx) => {
+        const cells = line.split('\t');
+        const rowNum = lineIdx + 2;
+
+        const qtyStr = String(cells[columnIndices.qty] || '').trim();
+        const qtyResult = parsePrice(qtyStr);
+        const qty = qtyResult.value;
+
+        if (qtyResult.isAmbiguous) {
+          newWarnings.push({
+            row: rowNum,
+            field: 'QTY',
+            message: `Format ambigu "${qtyStr}" dibaca sebagai ${qty}`,
+            value: qtyStr
+          });
+        }
+
+        if (isNaN(qty) || qty === 0) {
+          newWarnings.push({
+            row: rowNum,
+            field: 'QTY',
+            message: `QTY tidak valid atau kosong: "${qtyStr}"`,
+            value: qtyStr
+          });
+          return;
+        }
+
+        const priceStr = String(cells[columnIndices.price_unit] || '').trim();
+        const priceResult = parsePrice(priceStr);
+        const price = priceResult.value;
+
+        if (priceResult.isAmbiguous) {
+          newWarnings.push({
+            row: rowNum,
+            field: 'Harga',
+            message: `Format ambigu "${priceStr}" dibaca sebagai ${price.toLocaleString('id-ID')}`,
+            value: priceStr
+          });
+        }
+
+        if (isNaN(price) || price === 0) {
+          newWarnings.push({
+            row: rowNum,
+            field: 'Harga',
+            message: `Harga tidak valid atau kosong: "${priceStr}"`,
+            value: priceStr
+          });
+          return;
+        }
+
+        const uom = String(cells[columnIndices.uom] || '').trim().toLowerCase();
+        if (!uom) {
+          newWarnings.push({
+            row: rowNum,
+            field: 'UOM',
+            message: 'UOM kosong',
+            value: ''
+          });
+          return;
+        }
+
+        if (!VALID_UOMS.includes(uom)) {
+          newWarnings.push({
+            row: rowNum,
+            field: 'UOM',
+            message: `UOM "${uom}" tidak dikenal sistem. UOM valid: ${VALID_UOMS.slice(0, 10).join(', ')}, dll.`,
+            value: uom
+          });
+        }
+
+        const productName = String(cells[columnIndices.product_name] || '').trim();
+        if (!productName) {
+          newWarnings.push({
+            row: rowNum,
+            field: 'Item Pekerjaan',
+            message: 'Item Pekerjaan kosong',
+            value: ''
+          });
+          return;
+        }
+
+        formattedLines.push({
+          so_number: soNumber.trim(),
+          product_name: productName,
+          description: columnIndices.description !== undefined 
+            ? String(cells[columnIndices.description] || '').trim() 
+            : '',
+          qty: qty,
+          uom: uom,
+          price_unit: price,
+          discount: columnIndices.discount !== undefined 
+            ? (parsePrice(String(cells[columnIndices.discount] || '0')).value || 0)
+            : 0
+        });
+      });
+
+      setWarnings(newWarnings);
+
       if (formattedLines.length === 0) {
-        setParseError('Tidak ada data yang valid ditemukan');
+        setParseError('Tidak ada data yang valid ditemukan. Periksa warning di bawah untuk detailnya.');
         return;
       }
 
@@ -201,75 +342,9 @@ export default function OdooExcelUploader() {
     parsePastedData(text);
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>): void => {
-    const uploadedFile = e.target.files?.[0];
-    if (!uploadedFile) return;
-
-    setFile(uploadedFile);
-    setParseError(null);
-    setParsedData(null);
-    setResponse(null);
-    setError(null);
-    setShowAllLines(false);
-    setPastedText('');
-    setConfirmed(false);
-
-    const reader = new FileReader();
-    reader.onload = (evt: ProgressEvent<FileReader>): void => {
-      try {
-        const bstr = evt.target?.result;
-        const wb = XLSX.read(bstr, { type: 'binary' });
-
-        const wsname = wb.SheetNames[0];
-        const ws = wb.Sheets[wsname];
-
-        const data = XLSX.utils.sheet_to_json(ws, { defval: '' }) as ExcelRow[];
-
-        if (data.length === 0) {
-          setParseError('File kosong atau tidak ada data');
-          return;
-        }
-
-        const requiredColumns = ['so_number', 'product_name', 'description', 'qty', 'uom', 'price_unit', 'discount'];
-        const firstRow = data[0];
-        const availableColumns = Object.keys(firstRow).map(k => k.toLowerCase());
-
-        const missingColumns = requiredColumns.filter(col => !availableColumns.includes(col));
-
-        if (missingColumns.length > 0) {
-          setParseError(`Kolom tidak lengkap. Missing: ${missingColumns.join(', ')}`);
-          return;
-        }
-
-        const formattedData: FormattedData = {
-          lines: data.map((row: ExcelRow) => {
-            const qtyValue = parseFloat(String(row.qty).replace(',', '.'));
-            const discountValue = parseFloat(String(row.discount).replace(',', '.'));
-            return {
-              so_number: String(row.so_number || '').trim(),
-              product_name: String(row.product_name || '').trim(),
-              description: String(row.description || '').trim(),
-              qty: isNaN(qtyValue) ? 0 : qtyValue,
-              uom: String(row.uom || '').trim(),
-              price_unit: parsePrice(row.price_unit),
-              discount: isNaN(discountValue) ? 0 : discountValue
-            };
-          })
-        };
-
-        setParsedData(formattedData);
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-        setParseError(`Error parsing file: ${errorMessage}`);
-      }
-    };
-    reader.readAsBinaryString(uploadedFile);
-  };
-
   const handleSubmit = async (): Promise<void> => {
     if (!parsedData) return;
 
-    // require confirmation
     if (!confirmed) {
       setParseError('Anda harus konfirmasi summary sebelum submit');
       return;
@@ -292,7 +367,6 @@ export default function OdooExcelUploader() {
         setError(data as ApiError);
       } else {
         setResponse(data as ApiResponse);
-        // reset confirmation after success
         setConfirmed(false);
       }
     } catch (err) {
@@ -304,13 +378,34 @@ export default function OdooExcelUploader() {
   };
 
   const resetForm = (): void => {
-    setFile(null);
     setParsedData(null);
     setResponse(null);
     setError(null);
     setParseError(null);
     setShowAllLines(false);
     setPastedText('');
+    setConfirmed(false);
+    setEditingCell(null);
+    setSoNumber('');
+    setWarnings([]);
+  };
+
+  const handleCellEdit = (rowIdx: number, field: keyof FormattedLine, value: string): void => {
+    if (!parsedData) return;
+
+    const updatedLines = [...parsedData.lines];
+    const line = updatedLines[rowIdx];
+
+    if (field === 'qty' || field === 'discount') {
+      const numValue = parsePrice(value).value || 0;
+      line[field] = numValue;
+    } else if (field === 'price_unit') {
+      line[field] = parsePrice(value).value;
+    } else {
+      line[field] = value;
+    }
+
+    setParsedData({ lines: updatedLines });
     setConfirmed(false);
   };
 
@@ -343,99 +438,110 @@ export default function OdooExcelUploader() {
             <div className="space-y-6">
               <div className="bg-blue-50 dark:bg-blue-950 border-l-4 border-blue-500 dark:border-blue-400 p-4 rounded transition-colors duration-300">
                 <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">
-                  📋 Format Data:
+                  📋 Format Data (Header harus ada di baris pertama):
                 </h3>
                 <div className="text-sm text-blue-800 dark:text-blue-200 space-y-1">
-                  <p>Data harus memiliki kolom berikut (urutan bebas):</p>
-                  <ul className="list-disc list-inside ml-4 mt-2 space-y-1">
-                    <li><code className="bg-blue-100 dark:bg-blue-900 px-2 py-1 rounded">so_number</code> - Nomor Sales Order</li>
-                    <li><code className="bg-blue-100 dark:bg-blue-900 px-2 py-1 rounded">product_name</code> - Nama Produk</li>
-                    <li><code className="bg-blue-100 dark:bg-blue-900 px-2 py-1 rounded">description</code> - Deskripsi</li>
-                    <li><code className="bg-blue-100 dark:bg-blue-900 px-2 py-1 rounded">qty</code> - Kuantitas (angka)</li>
-                    <li><code className="bg-blue-100 dark:bg-blue-900 px-2 py-1 rounded">uom</code> - Satuan (m, m2, kg, ls, dll)</li>
-                    <li><code className="bg-blue-100 dark:bg-blue-900 px-2 py-1 rounded">price_unit</code> - Harga satuan (angka atau format Rp)</li>
-                    <li><code className="bg-blue-100 dark:bg-blue-900 px-2 py-1 rounded">discount</code> - Diskon % (angka 0-100)</li>
+                  <p className="font-semibold mb-2">Kolom WAJIB:</p>
+                  <ul className="list-disc list-inside ml-4 space-y-1">
+                    <li><code className="bg-blue-100 dark:bg-blue-900 px-2 py-1 rounded">Item Pekerjaan</code> - Nama Produk (bebas, boleh panjang)</li>
+                    <li><code className="bg-blue-100 dark:bg-blue-900 px-2 py-1 rounded">QTY</code> - Kuantitas (WAJIB ANGKA, harus terisi)</li>
+                    <li><code className="bg-blue-100 dark:bg-blue-900 px-2 py-1 rounded">UOM</code> - Satuan (harus dari list: pcs, unit, kg, m, m2, set, dll)</li>
+                    <li><code className="bg-blue-100 dark:bg-blue-900 px-2 py-1 rounded">Harga</code> - Harga satuan (WAJIB ANGKA, harus terisi)</li>
                   </ul>
-                </div>
-              </div>
-
-              <div className="flex gap-2 mb-4">
-                <button
-                  onClick={() => setPasteMode(true)}
-                  className={`flex-1 py-3 px-4 rounded-lg font-semibold transition-all ${
-                    pasteMode
-                      ? 'bg-blue-600 text-white shadow-lg'
-                      : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300'
-                  }`}
-                >
-                  📋 Paste from Excel/Sheets
-                </button>
-                <button
-                  onClick={() => setPasteMode(false)}
-                  className={`flex-1 py-3 px-4 rounded-lg font-semibold transition-all ${
-                    !pasteMode
-                      ? 'bg-blue-600 text-white shadow-lg'
-                      : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300'
-                  }`}
-                >
-                  📁 Upload File
-                </button>
-              </div>
-
-              {pasteMode ? (
-                <div className="space-y-4">
-                  <div className="bg-yellow-50 dark:bg-yellow-950 border-l-4 border-yellow-500 p-4 rounded">
-                    <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                      💡 <strong>Cara pakai:</strong> Copy data dari Excel/Google Sheets (termasuk header), 
-                      lalu paste (Ctrl+V / Cmd+V) di kotak bawah ini
-                    </p>
+                  <p className="font-semibold mt-3 mb-2">Kolom OPSIONAL:</p>
+                  <ul className="list-disc list-inside ml-4 space-y-1">
+                    <li><code className="bg-blue-100 dark:bg-blue-900 px-2 py-1 rounded">Description</code> - Deskripsi (default: kosong)</li>
+                    <li><code className="bg-blue-100 dark:bg-blue-900 px-2 py-1 rounded">Discount</code> - Diskon % (default: 0)</li>
+                  </ul>
+                  
+                  <div className="mt-4 p-3 bg-yellow-50 dark:bg-yellow-900 rounded border border-yellow-200">
+                    <p className="font-semibold text-yellow-900 dark:text-yellow-100 mb-2">⚠️ RULES PENTING:</p>
+                    <ul className="list-disc list-inside ml-2 space-y-1 text-xs">
+                      <li><strong>TIDAK BOLEH ada merged cells</strong> - Unmerge semua cell sebelum copy</li>
+                      <li><strong>Format angka:</strong> Decimal pakai koma (56,22), Ribuan pakai titik (1.000)</li>
+                      <li><strong>Contoh format valid:</strong> 1.400,42 = seribu empat ratus koma empat dua</li>
+                      <li><strong>Qty dan Harga wajib angka</strong> - Tidak boleh kosong atau teks</li>
+                      <li><strong>UOM harus dikenal sistem</strong> - Cek list UOM yang valid</li>
+                    </ul>
                   </div>
-                  <textarea
-                    value={pastedText}
-                    onChange={(e) => setPastedText(e.target.value)}
-                    onPaste={handlePaste}
-                    placeholder="Paste data dari Excel/Sheets di sini... (Ctrl+V / Cmd+V)
-
-Contoh format:
-so_number	product_name	description	qty	uom	price_unit	discount
-S00120	Meja Kotak 1	-	1	Unit	IDR 5.244.000	0"
-                    className="w-full h-64 p-4 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg font-mono text-sm bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 focus:border-blue-500 focus:outline-none resize-none"
-                  />
-                  {pastedText && (
-                    <button
-                      onClick={() => parsePastedData(pastedText)}
-                      className="w-full py-3 px-4 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-colors"
-                    >
-                      🔍 Parse Data
-                    </button>
-                  )}
                 </div>
-              ) : (
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-500 transition-colors">
-                  <input
-                    type="file"
-                    accept=".xlsx,.xls,.csv"
-                    onChange={handleFileUpload}
-                    className="hidden"
-                    id="file-upload"
-                  />
-                  <label
-                    htmlFor="file-upload"
-                    className="cursor-pointer flex flex-col items-center"
+              </div>
+
+              <div className="bg-white dark:bg-gray-900 border-2 border-blue-300 dark:border-blue-700 rounded-lg p-6">
+                <label htmlFor="so-number" className="block text-lg font-semibold text-gray-800 dark:text-gray-200 mb-3">
+                  📝 SO Number <span className="text-red-500">*</span>
+                </label>
+                <input
+                  id="so-number"
+                  type="text"
+                  value={soNumber}
+                  onChange={(e) => setSoNumber(e.target.value)}
+                  placeholder="Contoh: S00120"
+                  className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg text-lg font-mono bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:border-blue-500 focus:outline-none"
+                />
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                  Masukkan nomor SO yang akan digunakan untuk semua line items
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                <div className="bg-green-50 dark:bg-green-950 border-l-4 border-green-500 p-4 rounded">
+                  <p className="text-sm text-green-800 dark:text-green-200">
+                    💡 <strong>Cara pakai:</strong> Isi SO Number di atas, lalu copy data dari Excel/Google Sheets (termasuk header), 
+                    kemudian paste (Ctrl+V / Cmd+V) di kotak bawah ini
+                  </p>
+                </div>
+                <textarea
+                  value={pastedText}
+                  onChange={(e) => setPastedText(e.target.value)}
+                  onPaste={handlePaste}
+                  placeholder="PASTE DATA DARI EXCEL/SHEETS DI SINI...
+
+Pastikan sudah:
+✓ Isi SO Number di atas
+✓ Tidak ada merged cells
+✓ Format angka sudah benar (ribuan: 1.000, decimal: 0,50)
+✓ Copy dengan header (baris pertama)"
+                  className="w-full h-48 p-4 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg font-mono text-sm bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 focus:border-blue-500 focus:outline-none resize-none"
+                />
+                {pastedText && (
+                  <button
+                    onClick={() => parsePastedData(pastedText)}
+                    disabled={!soNumber.trim()}
+                    className={`w-full py-3 px-4 rounded-lg font-semibold transition-colors ${
+                      !soNumber.trim()
+                        ? 'bg-gray-400 text-white cursor-not-allowed'
+                        : 'bg-green-600 text-white hover:bg-green-700'
+                    }`}
                   >
-                    <div className="text-6xl mb-4">📁</div>
-                    <p className="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                      Click to upload Excel/Sheets file
-                    </p>
-                    <p className="text-sm text-gray-500">
-                      Supports .xlsx, .xls, .csv files
-                    </p>
-                    {file && (
-                      <p className="mt-4 text-sm text-blue-600 font-medium">
-                        Selected: {file.name}
-                      </p>
-                    )}
-                  </label>
+                    {!soNumber.trim() ? '⚠️ Isi SO Number Dulu' : '🔍 Parse Data'}
+                  </button>
+                )}
+              </div>
+
+              {warnings.length > 0 && (
+                <div className="bg-orange-50 dark:bg-orange-950 border border-orange-200 rounded-lg p-4 max-h-96 overflow-y-auto">
+                  <div className="flex items-center mb-3">
+                    <span className="text-2xl mr-3">⚠️</span>
+                    <h3 className="text-lg font-semibold text-orange-800 dark:text-orange-200">
+                      Warnings ({warnings.length})
+                    </h3>
+                  </div>
+                  <div className="space-y-2">
+                    {warnings.map((warning, idx) => (
+                      <div key={idx} className="text-sm bg-white dark:bg-orange-900 p-3 rounded border border-orange-300">
+                        <p className="font-semibold text-orange-900 dark:text-orange-100">
+                          Baris {warning.row}, Kolom {warning.field}:
+                        </p>
+                        <p className="text-orange-800 dark:text-orange-200">{warning.message}</p>
+                        {warning.value && (
+                          <p className="text-xs text-orange-600 dark:text-orange-400 mt-1 font-mono">
+                            Nilai: {warning.value}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
 
@@ -467,27 +573,25 @@ S00120	Meja Kotak 1	-	1	Unit	IDR 5.244.000	0"
                 </div>
               </div>
 
-              {/* Summary box */}
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="bg-white dark:bg-gray-900 border p-4 rounded-lg shadow-sm">
                   <p className="text-sm text-gray-600 dark:text-gray-400">Total Lines</p>
-                  <p className="text-2xl font-bold">{summary.totalLines}</p>
+                  <p className="text-2xl font-bold dark:text-gray-100">{Math.round(summary.totalLines)}</p>
                 </div>
                 <div className="bg-white dark:bg-gray-900 border p-4 rounded-lg shadow-sm">
                   <p className="text-sm text-gray-600 dark:text-gray-400">Total Qty</p>
-                  <p className="text-2xl font-bold">{summary.totalQty}</p>
+                  <p className="text-2xl font-bold dark:text-gray-100">{summary.totalQty.toFixed(4)}</p>
                 </div>
                 <div className="bg-white dark:bg-gray-900 border p-4 rounded-lg shadow-sm">
                   <p className="text-sm text-gray-600 dark:text-gray-400">Gross Amount</p>
-                  <p className="text-2xl font-bold">Rp {summary.grossAmount.toLocaleString('id-ID')}</p>
+                  <p className="text-2xl font-bold dark:text-gray-100">Rp {summary.grossAmount.toLocaleString('id-ID')}</p>
                 </div>
                 <div className="bg-white dark:bg-gray-900 border p-4 rounded-lg shadow-sm">
                   <p className="text-sm text-gray-600 dark:text-gray-400">Net Amount</p>
-                  <p className="text-2xl font-bold">Rp {summary.netAmount.toLocaleString('id-ID')}</p>
+                  <p className="text-2xl font-bold dark:text-gray-100">Rp {summary.netAmount.toLocaleString('id-ID')}</p>
                 </div>
               </div>
 
-              {/* Confirmation checkbox */}
               <div className="flex items-center gap-3 mt-2">
                 <input
                   id="confirm-checkbox"
@@ -501,19 +605,23 @@ S00120	Meja Kotak 1	-	1	Unit	IDR 5.244.000	0"
                 </label>
               </div>
 
-              {/* Sample preview + full table */}
+              <div className="bg-yellow-50 dark:bg-yellow-950 border-l-4 border-yellow-500 p-3 rounded">
+                <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                  💡 <strong>Tip:</strong> Klik pada cell di tabel untuk mengedit nilai. Tekan Enter untuk save, Escape untuk cancel. SO Number: <span className="font-bold">{soNumber}</span>
+                </p>
+              </div>
+
               <div className="border border-gray-200 rounded-lg overflow-hidden">
                 <div className="overflow-x-auto" style={tableScrollStyle}>
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50 dark:bg-gray-950 sticky top-0">
                       <tr>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">#</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">SO Number</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Product</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Item Pekerjaan</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Description</th>
                         <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Qty</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">UoM</th>
-                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Price</th>
+                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Harga</th>
                         <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Disc %</th>
                         <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Subtotal</th>
                       </tr>
@@ -524,15 +632,175 @@ S00120	Meja Kotak 1	-	1	Unit	IDR 5.244.000	0"
                         return (
                           <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
                             <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{idx + 1}</td>
-                            <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100 font-medium">{line.so_number}</td>
-                            <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{line.product_name}</td>
-                            <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{line.description}</td>
-                            <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100 text-right">{line.qty}</td>
-                            <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{line.uom}</td>
-                            <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100 text-right">
-                              Rp {line.price_unit.toLocaleString('id-ID')}
+                            
+                            <td 
+                              className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100 cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-950"
+                              onClick={() => setEditingCell({ rowIdx: idx, field: 'product_name' })}
+                            >
+                              {editingCell?.rowIdx === idx && editingCell?.field === 'product_name' ? (
+                                <input
+                                  type="text"
+                                  defaultValue={line.product_name}
+                                  autoFocus
+                                  onBlur={(e) => {
+                                    handleCellEdit(idx, 'product_name', e.target.value);
+                                    setEditingCell(null);
+                                  }}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                      handleCellEdit(idx, 'product_name', e.currentTarget.value);
+                                      setEditingCell(null);
+                                    } else if (e.key === 'Escape') {
+                                      setEditingCell(null);
+                                    }
+                                  }}
+                                  className="w-full px-2 py-1 border border-blue-500 rounded focus:outline-none bg-white dark:bg-gray-800"
+                                />
+                              ) : (
+                                line.product_name
+                              )}
                             </td>
-                            <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100 text-right">{line.discount}%</td>
+
+                            <td 
+                              className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400 cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-950"
+                              onClick={() => setEditingCell({ rowIdx: idx, field: 'description' })}
+                            >
+                              {editingCell?.rowIdx === idx && editingCell?.field === 'description' ? (
+                                <input
+                                  type="text"
+                                  defaultValue={line.description}
+                                  autoFocus
+                                  onBlur={(e) => {
+                                    handleCellEdit(idx, 'description', e.target.value);
+                                    setEditingCell(null);
+                                  }}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                      handleCellEdit(idx, 'description', e.currentTarget.value);
+                                      setEditingCell(null);
+                                    } else if (e.key === 'Escape') {
+                                      setEditingCell(null);
+                                    }
+                                  }}
+                                  className="w-full px-2 py-1 border border-blue-500 rounded focus:outline-none bg-white dark:bg-gray-800"
+                                />
+                              ) : (
+                                line.description || '-'
+                              )}
+                            </td>
+
+                            <td 
+                              className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100 text-right cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-950"
+                              onClick={() => setEditingCell({ rowIdx: idx, field: 'qty' })}
+                            >
+                              {editingCell?.rowIdx === idx && editingCell?.field === 'qty' ? (
+                                <input
+                                  type="text"
+                                  defaultValue={line.qty}
+                                  autoFocus
+                                  onBlur={(e) => {
+                                    handleCellEdit(idx, 'qty', e.target.value);
+                                    setEditingCell(null);
+                                  }}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                      handleCellEdit(idx, 'qty', e.currentTarget.value);
+                                      setEditingCell(null);
+                                    } else if (e.key === 'Escape') {
+                                      setEditingCell(null);
+                                    }
+                                  }}
+                                  className="w-full px-2 py-1 border border-blue-500 rounded focus:outline-none bg-white dark:bg-gray-800 text-right"
+                                />
+                              ) : (
+                                line.qty
+                              )}
+                            </td>
+
+                            <td 
+                              className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100 cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-950"
+                              onClick={() => setEditingCell({ rowIdx: idx, field: 'uom' })}
+                            >
+                              {editingCell?.rowIdx === idx && editingCell?.field === 'uom' ? (
+                                <input
+                                  type="text"
+                                  defaultValue={line.uom}
+                                  autoFocus
+                                  onBlur={(e) => {
+                                    handleCellEdit(idx, 'uom', e.target.value);
+                                    setEditingCell(null);
+                                  }}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                      handleCellEdit(idx, 'uom', e.currentTarget.value);
+                                      setEditingCell(null);
+                                    } else if (e.key === 'Escape') {
+                                      setEditingCell(null);
+                                    }
+                                  }}
+                                  className="w-full px-2 py-1 border border-blue-500 rounded focus:outline-none bg-white dark:bg-gray-800"
+                                />
+                              ) : (
+                                line.uom
+                              )}
+                            </td>
+
+                            <td 
+                              className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100 text-right cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-950"
+                              onClick={() => setEditingCell({ rowIdx: idx, field: 'price_unit' })}
+                            >
+                              {editingCell?.rowIdx === idx && editingCell?.field === 'price_unit' ? (
+                                <input
+                                  type="text"
+                                  defaultValue={line.price_unit}
+                                  autoFocus
+                                  onBlur={(e) => {
+                                    handleCellEdit(idx, 'price_unit', e.target.value);
+                                    setEditingCell(null);
+                                  }}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                      handleCellEdit(idx, 'price_unit', e.currentTarget.value);
+                                      setEditingCell(null);
+                                    } else if (e.key === 'Escape') {
+                                      setEditingCell(null);
+                                    }
+                                  }}
+                                  className="w-full px-2 py-1 border border-blue-500 rounded focus:outline-none bg-white dark:bg-gray-800 text-right"
+                                />
+                              ) : (
+                                `Rp ${line.price_unit.toLocaleString('id-ID')}`
+                              )}
+                            </td>
+
+                            <td 
+                              className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100 text-right cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-950"
+                              onClick={() => setEditingCell({ rowIdx: idx, field: 'discount' })}
+                            >
+                              {editingCell?.rowIdx === idx && editingCell?.field === 'discount' ? (
+                                <input
+                                  type="text"
+                                  defaultValue={line.discount}
+                                  autoFocus
+                                  onBlur={(e) => {
+                                    handleCellEdit(idx, 'discount', e.target.value);
+                                    setEditingCell(null);
+                                  }}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                      handleCellEdit(idx, 'discount', e.currentTarget.value);
+                                      setEditingCell(null);
+                                    } else if (e.key === 'Escape') {
+                                      setEditingCell(null);
+                                    }
+                                  }}
+                                  className="w-full px-2 py-1 border border-blue-500 rounded focus:outline-none bg-white dark:bg-gray-800 text-right"
+                                />
+                              ) : (
+                                `${line.discount}%`
+                              )}
+                            </td>
+
                             <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100 text-right font-semibold">
                               Rp {subtotal.toLocaleString('id-ID')}
                             </td>

@@ -3,212 +3,130 @@ import { NextResponse } from 'next/server';
 export const revalidate = 0;
 export const dynamic = 'force-dynamic';
 
-// ======================
-// Types
-// ======================
-
-const testing = false; // false for production
-const config = testing
-  ? {
-      apiKey: process.env.ODOO_API_KEY_DEMO,
-      url: 'https://erbe-trial5.odoo.com/jsonrpc',
-      database: 'erbe-trial5'
-    }
-  : {
-      apiKey: process.env.ODOO_API_KEY_PROD,
-      url: 'https://erbe.odoo.com/jsonrpc',
-      database: 'erbe'
-    };
-
-if (!config.apiKey) {
-  throw new Error(`Missing Odoo API Key for ${testing ? 'DEMO' : 'PROD'}`);
-}
-
-const { apiKey, url, database } = config;
-
-
-
-interface SheetRow {
-  so_number: string;
-  product_name: string;
-  description?: string;
-  qty: number;
-  uom?: string;
-  price_unit: number;
-  discount?: number;
-}
-
-interface CreateSORequest {
-  lines: SheetRow[];
-}
-
-interface OdooResponse<T> {
-  result?: T;
-  error?: {
-    data?: {
-      message: string;
-    };
-  };
-}
-
-interface ProductVariantRead {
-  product_variant_ids: number[];
-}
-
-interface LineResult {
-  success: boolean;
-  product_name: string;
-  product_id?: number;
-  product_created?: boolean;
-  order_line_id?: number;
-  qty?: number;
-  uom?: string;
-  price?: number;
-  error?: string;
-}
-
-interface SOResult {
-  so_number: string;
-  so_id: number;
-  so_created: boolean;
-  total_lines: number;
-  success_lines: number;
-  failed_lines: number;
-  lines: LineResult[];
-}
-
-interface ErrorResult {
-  so_number: string;
-  error: string;
-}
-
-// ======================
-// UOM Mapping
-// ======================
 
 // !uom mapping prod
-// const UOM_MAP: Record<string, number> = {
-//   'Units': 1,
-//   'units': 1,
-//   'Unit': 95,
-//   'unit': 95,
-//   'Titik': 29,
-//   'titik': 29,
-//   'Lembar': 34,
-//   'lembar': 34,
-//   'Pcs': 35,
-//   'pcs': 35,
-//   'Bungkus': 36,
-//   'bungkus': 36,
-//   'Dus': 38,
-//   'dus': 38,
-//   'Batang': 39,
-//   'batang': 39,
-//   'Pak': 42,
-//   'pak': 42,
-//   'Roll': 43,
-//   'roll': 43,
-//   'Rit': 44,
-//   'rit': 44,
-//   'Set': 45,
-//   'set': 45,
-//   'Pasang': 46,
-//   'pasang': 46,
-//   'Kaleng': 47,
-//   'kaleng': 47,
-//   'Botol': 48,
-//   'botol': 48,
-//   'Ikat': 49,
-//   'ikat': 49,
-//   'Orang': 50,
-//   'orang': 50,
-//   'Lusin': 52,
-//   'lusin': 52,
-//   'Box': 54,
-//   'box': 54,
-//   'Engkel': 31,
-//   'engkel': 31,
-//   'Pick Up': 68,
-//   'pick up': 68,
-//   'Weeks': 77,
-//   'weeks': 77,
-//   'Months': 78,
-//   'months': 78,
-//   'Hari': 106,
-//   'hari': 106,
-//   'Lot': 96,
-//   'lot': 96,
-//   'DO': 110,
-//   'do': 110,
-//   'Watt': 92,
-//   'watt': 92,
-//   'An Tgg': 91,
-//   'an tgg': 91,
-//   'Jerigen': 117,
-//   'jerigen': 117,
-//   'Sak': 32,
-//   'sak': 32,
-//   'm': 5,
-//   'meter': 5,
-//   'm1': 28,
-//   'm¹': 28,
-//   'm2': 9,
-//   'm²': 9,
-//   'meter persegi': 9,
-//   'm3': 11,
-//   'm³': 11,
-//   'meter kubik': 11,
-//   'mm': 6,
-//   'cm': 8,
-//   'km': 7,
-//   'in': 17,
-//   'inch': 17,
-//   'ft': 18,
-//   'feet': 18,
-//   'yd': 19,
-//   'yard': 19,
-//   'mi': 20,
-//   'mile': 20,
-//   'ft²': 21,
-//   'ft2': 21,
-//   'in³': 25,
-//   'in3': 25,
-//   'ft³': 26,
-//   'ft3': 26,
-//   'm³ (unit)': 97,
-//   'g': 13,
-//   'gram': 13,
-//   'kg': 12,
-//   'kilogram': 12,
-//   't': 14,
-//   'ton': 14,
-//   'lb': 15,
-//   'pound': 15,
-//   'oz': 16,
-//   'ons': 55,
-//   'l': 10,
-//   'L': 10,
-//   'liter': 10,
-//   'Liter': 105,
-//   'gal (US)': 24,
-//   'Galon': 37,
-//   'galon': 37,
-//   'qt (US)': 23,
-//   'fl oz (US)': 22,
-//   'Truk': 30,
-//   'truk': 30,
-//   'Engkel (Vol)': 31,
-//   'Pail': 33,
-//   'pail': 33,
-//   'ls': 27,
-//   'lump sum': 27,
-//   'm (Commercial)': 122,
-//   'Botol (Length)': 123
-// };
+const UOM_MAP_PROD: Record<string, number> = {
+  'Units': 1,
+  'units': 1,
+  'Unit': 95,
+  'unit': 95,
+  'Titik': 29,
+  'titik': 29,
+  'Lembar': 34,
+  'lembar': 34,
+  'Pcs': 35,
+  'pcs': 35,
+  'Bungkus': 36,
+  'bungkus': 36,
+  'Dus': 38,
+  'dus': 38,
+  'Batang': 39,
+  'batang': 39,
+  'Pak': 42,
+  'pak': 42,
+  'Roll': 43,
+  'roll': 43,
+  'Rit': 44,
+  'rit': 44,
+  'Set': 45,
+  'set': 45,
+  'Pasang': 46,
+  'pasang': 46,
+  'Kaleng': 47,
+  'kaleng': 47,
+  'Botol': 48,
+  'botol': 48,
+  'Ikat': 49,
+  'ikat': 49,
+  'Orang': 50,
+  'orang': 50,
+  'Lusin': 52,
+  'lusin': 52,
+  'Box': 54,
+  'box': 54,
+  'Engkel': 31,
+  'engkel': 31,
+  'Pick Up': 68,
+  'pick up': 68,
+  'Weeks': 77,
+  'weeks': 77,
+  'Months': 78,
+  'months': 78,
+  'Hari': 106,
+  'hari': 106,
+  'Lot': 96,
+  'lot': 96,
+  'DO': 110,
+  'do': 110,
+  'Watt': 92,
+  'watt': 92,
+  'An Tgg': 91,
+  'an tgg': 91,
+  'Jerigen': 117,
+  'jerigen': 117,
+  'Sak': 32,
+  'sak': 32,
+  'm': 5,
+  'meter': 5,
+  'm1': 28,
+  'm¹': 28,
+  'm2': 9,
+  'm²': 9,
+  'meter persegi': 9,
+  'm3': 11,
+  'm³': 11,
+  'meter kubik': 11,
+  'mm': 6,
+  'cm': 8,
+  'km': 7,
+  'in': 17,
+  'inch': 17,
+  'ft': 18,
+  'feet': 18,
+  'yd': 19,
+  'yard': 19,
+  'mi': 20,
+  'mile': 20,
+  'ft²': 21,
+  'ft2': 21,
+  'in³': 25,
+  'in3': 25,
+  'ft³': 26,
+  'ft3': 26,
+  'm³ (unit)': 97,
+  'g': 13,
+  'gram': 13,
+  'kg': 12,
+  'kilogram': 12,
+  't': 14,
+  'ton': 14,
+  'lb': 15,
+  'pound': 15,
+  'oz': 16,
+  'ons': 55,
+  'l': 10,
+  'L': 10,
+  'liter': 10,
+  'Liter': 105,
+  'gal (US)': 24,
+  'Galon': 37,
+  'galon': 37,
+  'qt (US)': 23,
+  'fl oz (US)': 22,
+  'Truk': 30,
+  'truk': 30,
+  'Engkel (Vol)': 31,
+  'Pail': 33,
+  'pail': 33,
+  'ls': 27,
+  'lump sum': 27,
+  'm (Commercial)': 122,
+  'Botol (Length)': 123
+};
 
 
 // !uom mapping demo
-const UOM_MAP: Record<string, number> = {
+const UOM_MAP_DEMO: Record<string, number> = {
   // Unit (category_id: 1)
   "Unit": 1,
   "unit": 1,
@@ -316,128 +234,97 @@ const UOM_MAP: Record<string, number> = {
   "m_unsorted": 69
 };
 
+// ======================
+// Types
+// ======================
+
+const testing = true; // false for production
+const config = testing
+  ? {
+      apiKey: process.env.ODOO_API_KEY_DEMO,
+      url: 'https://erbe-trial5.odoo.com/jsonrpc',
+      database: 'erbe-trial5',
+      UOM: UOM_MAP_DEMO
+    }
+  : {
+      apiKey: process.env.ODOO_API_KEY_PROD,
+      url: 'https://erbe.odoo.com/jsonrpc',
+      database: 'erbe',
+      UOM: UOM_MAP_PROD
+      
+      
+    };
+
+if (!config.apiKey) {
+  throw new Error(`Missing Odoo API Key for ${testing ? 'DEMO' : 'PROD'}`);
+}
+
+const { apiKey, url, database, UOM } = config;
+
+
+
+interface SheetRow {
+  so_number: string;
+  product_name: string;
+  description?: string;
+  qty: number;
+  uom?: string;
+  price_unit: number;
+  discount?: number;
+}
+
+interface CreateSORequest {
+  lines: SheetRow[];
+}
+
+interface OdooResponse<T> {
+  result?: T;
+  error?: {
+    data?: {
+      message: string;
+    };
+  };
+}
+
+interface ProductVariantRead {
+  product_variant_ids: number[];
+}
+
+interface LineResult {
+  success: boolean;
+  product_name: string;
+  product_id?: number;
+  product_created?: boolean;
+  order_line_id?: number;
+  qty?: number;
+  uom?: string;
+  price?: number;
+  error?: string;
+}
+
+interface SOResult {
+  so_number: string;
+  so_id: number;
+  so_created: boolean;
+  total_lines: number;
+  success_lines: number;
+  failed_lines: number;
+  lines: LineResult[];
+}
+
+interface ErrorResult {
+  so_number: string;
+  error: string;
+}
+
+// ======================
+// UOM Mapping
+// ======================
+
+
+
 // !uom mapping prod completed
-// const UOM_MAP: Record<string, number> = {
-//   'An Tgg': 91,
-//   'an tgg': 91,
-//   'Batang': 39,
-//   'batang': 39,
-//   'Botol': 48,
-//   'botol': 48,
-//   'Box': 54,
-//   'box': 54,
-//   'Bungkus': 36,
-//   'bungkus': 36,
-//   'cm': 8,
-//   'Days': 3,
-//   'days': 3,
-//   'DO': 110,
-//   'do': 110,
-//   'Dus': 38,
-//   'dus': 38,
-//   'Engkel': 31,
-//   'engkel': 31,
-//   'Feet': 18,
-//   'feet': 18,
-//   'fl oz (US)': 22,
-//   'Fl oz (US)': 22,
-//   'ft': 18,
-//   'ft2': 21,
-//   'ft²': 21,
-//   'ft3': 26,
-//   'ft³': 26,
-//   'g': 13,
-//   'gal (US)': 24,
-//   'Gal (US)': 24,
-//   'Galon': 37,
-//   'galon': 37,
-//   'Hari': 106,
-//   'hari': 106,
-//   'Hours': 4,
-//   'hours': 4,
-//   'Ikat': 49,
-//   'ikat': 49,
-//   'in': 17,
-//   'inch': 17,
-//   'in3': 25,
-//   'in³': 25,
-//   'Jerigen': 117,
-//   'jerigen': 117,
-//   'kg': 12,
-//   'Kilogram': 12,
-//   'kilogram': 12,
-//   'km': 7,
-//   'L': 10,
-//   'l': 10,
-//   'Length / Distance': 4,
-//   'lembar': 34,
-//   'Lembar': 34,
-//   'liter': 10,
-//   'Liter': 105,
-//   'Lot': 96,
-//   'lot': 96,
-//   'ls': 27,
-//   'lump sum': 27,
-//   'Lusin': 52,
-//   'lusin': 52,
-//   'm': 5,
-//   'm (Commercial)': 122,
-//   'm1': 28,
-//   'm¹': 28,
-//   'm2': 9,
-//   'm²': 9,
-//   'm3': 11,
-//   'm³': 11,
-//   'm³ (unit)': 97,
-//   'meter': 5,
-//   'meter persegi': 9,
-//   'meter kubik': 11,
-//   'mi': 20,
-//   'mile': 20,
-//   'mm': 6,
-//   'Months': 78,
-//   'months': 78,
-//   'ons': 55,
-//   'Orang': 50,
-//   'orang': 50,
-//   'oz': 16,
-//   'Pail': 33,
-//   'pail': 33,
-//   'Pak': 42,
-//   'pak': 42,
-//   'Pasang': 46,
-//   'pasang': 46,
-//   'Pcs': 35,
-//   'pcs': 35,
-//   'Pick Up': 68,
-//   'pick up': 68,
-//   'qt (US)': 23,
-//   'Qt (US)': 23,
-//   'Rit': 44,
-//   'rit': 44,
-//   'Roll': 43,
-//   'roll': 43,
-//   'Sak': 32,
-//   'sak': 32,
-//   'Set': 45,
-//   'set': 45,
-//   'Titik': 29,
-//   'titik': 29,
-//   't': 14,
-//   'ton': 14,
-//   'Truk': 30,
-//   'truk': 30,
-//   'Unit': 95,
-//   'unit': 95,
-//   'Units': 1,
-//   'units': 1,
-//   'Watt': 92,
-//   'watt': 92,
-//   'Weeks': 77,
-//   'weeks': 77,
-//   'yd': 19,
-//   'yard': 19
-// };
+
 
 
 const DEFAULT_UOM = 1;
@@ -625,7 +512,7 @@ function getUomId(uomName?: string): number {
   if (!uomName) return DEFAULT_UOM;
 
   const normalized = uomName.trim();
-  return UOM_MAP[normalized] || DEFAULT_UOM;
+  return UOM[normalized] || DEFAULT_UOM;
 }
 
 // ======================
