@@ -209,12 +209,12 @@ export default function OdooExcelUploader() {
       const missingColumns = requiredColumns.filter(col => !headers.includes(col));
 
       if (missingColumns.length > 0) {
-        setParseError(`Kolom wajib tidak lengkap. Missing: ${missingColumns.map(c => {
-          const found = Object.entries(COLUMN_MAPPING).find(([ v]) => v === c);
-          return found ? found[0].toUpperCase() : c;
-        }).join(', ')}`);
-        return;
-      }
+          setParseError(`Kolom wajib tidak lengkap. Missing: ${missingColumns.map(c => {
+            const found = Object.entries(COLUMN_MAPPING).find(([ v]) => v === c);
+            return found ? found[0].toUpperCase() : c;
+          }).join(', ')}`);
+          return;
+        }
 
       const columnIndices: { [key: string]: number } = {};
       headers.forEach((header, idx) => {
@@ -445,7 +445,7 @@ export default function OdooExcelUploader() {
                   <ul className="list-disc list-inside ml-4 space-y-1">
                     <li><code className="bg-blue-100 dark:bg-blue-900 px-2 py-1 rounded">Item Pekerjaan</code> - Nama Produk (bebas, boleh panjang)</li>
                     <li><code className="bg-blue-100 dark:bg-blue-900 px-2 py-1 rounded">QTY</code> - Kuantitas (WAJIB ANGKA, harus terisi)</li>
-                    <li><code className="bg-blue-100 dark:bg-blue-900 px-2 py-1 rounded">UOM</code> - Satuan (harus dari list: pcs, unit, kg, m, m2, set, dll)</li>
+                    <li><code className="bg-blue-100 dark:bg-blue-900 px-2 py-1 rounded">SAT</code> - Satuan (harus dari list: pcs, unit, kg, m, m2, set, dll)</li>
                     <li><code className="bg-blue-100 dark:bg-blue-900 px-2 py-1 rounded">Harga</code> - Harga satuan (WAJIB ANGKA, harus terisi)</li>
                   </ul>
                   <p className="font-semibold mt-3 mb-2">Kolom OPSIONAL:</p>

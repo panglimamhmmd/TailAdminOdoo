@@ -238,7 +238,7 @@ const UOM_MAP_DEMO: Record<string, number> = {
 // Types
 // ======================
 
-const testing = true; // false for production
+const testing = false; // false for production
 const config = testing
   ? {
       apiKey: process.env.ODOO_API_KEY_DEMO,
