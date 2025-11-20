@@ -14,7 +14,7 @@ import {
   // PageIcon,
   PieChartIcon,
   PlugInIcon,
-  // TableIcon,
+  TableIcon,
   // UserCircleIcon,
   TaskIcon
 } from "../icons/index";
@@ -37,7 +37,7 @@ const navItems: NavItem[] = [
     icon: <TaskIcon />,
     name: "Odoo",
     subItems: [
-      { name: "Sales Order Input", path: "/salesorderautomation", pro: false },
+      { name: "Sales Order Input", path: "/salesorderautomation", pro: true },
       { name: "Progress Input", path: "/progressinput", pro: true },
       // { name: "Progress Input", path: "/progressautomation", pro: false },
     ],
@@ -59,11 +59,11 @@ const navItems: NavItem[] = [
   //   icon: <ListIcon />,
   //   subItems: [{ name: "Form Elements", path: "/form-elements", pro: false }],
   // },
-  // {
-  //   name: "Tables",
-  //   icon: <TableIcon />,
-  //   subItems: [{ name: "Basic Tables", path: "/basic-tables", pro: false }],
-  // },
+  ,{
+    name: "Finance",
+    icon: <TableIcon />,
+    subItems: [{ name: "Project (finance)", path: "/projectfinance", pro: false }],
+  },
   // {
   //   name: "Pages",
   //   icon: <PageIcon />,
