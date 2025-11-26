@@ -35,6 +35,5 @@ export const config = {
      * - signin/signup (authentication pages)
      * - 404 page
      */
-    '/((?!api|_next/static|_next/image|favicon.ico|signin|signup|404|forbidden).*)',
-  ],
+  '/((?!_next/static|_next/image|favicon.ico|signin|signup|404|forbidden).*)',  ],
 };

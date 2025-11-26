@@ -61,7 +61,7 @@ export default function ProjectDetailsLayout({
   const handleProjectClick = useCallback(
     (projectName: string): void => {
       const encodedName = encodeURIComponent(projectName);
-      router.push(`/project-detail/${encodedName}`);
+      router.push(`/projectdetail/${encodedName}`);
 
       // Always close sidebar on mobile after selection
       if (isMobile) {
@@ -150,7 +150,7 @@ export default function ProjectDetailsLayout({
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top Bar */}
-        <header className="bg-white dark:bg-gray-800 shadow-sm dark:shadow-gray-900/30 px-4 py-3 flex items-center justify-between border-b border-gray-200 dark:border-gray-700 shrink-0">
+        <header className="bg-white dark:bg-gray-800 shadow-sm dark:shadow-gray-900/30 px-4  flex items-center justify-between border-b border-gray-200 dark:border-gray-700 shrink-0">
           {/* Toggle button - hanya tampil di mobile */}
           {isMobile && (
             <button
@@ -169,7 +169,7 @@ export default function ProjectDetailsLayout({
         </header>
 
         {/* Content Area */}
-        <main className="flex-1 p-3 overflow-auto">
+        <main className="flex-1 overflow-auto">
           {children}
         </main>
       </div>

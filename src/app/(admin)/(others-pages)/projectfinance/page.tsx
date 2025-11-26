@@ -274,7 +274,7 @@ const ProjectTable: React.FC<{ projects: ProjectSummary[] }> = ({ projects }) =>
                   </tr>
                   {isExpanded && (
                     <tr className="bg-gray-50 dark:bg-gray-750">
-                      <td colSpan={8} className="px-6 py-6">
+                      <td colSpan={8} className="px-6 py-6 bg-gray-50 dark:bg-gray-750 ">
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                           <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
                             <h4 className="text-lg font-semibold text-green-600 dark:text-green-400 mb-4 flex items-center">

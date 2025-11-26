@@ -31,14 +31,17 @@ const navItems: NavItem[] = [
   {
     icon: <GridIcon />,
     name: "Dashboard",
-    subItems: [{ name: "Dashboard", path: "/", pro: false }  , { name: "TV", path: "/project", pro: false }  , { name: "Project Details", path: "/project-detail", pro: false }],
+    subItems: [
+      { name: "Dashboard", path: "/", pro: false }  ,
+      { name: "TV", path: "/project", pro: false }  ,
+      ],
   },
     {
     icon: <TaskIcon />,
     name: "Odoo",
     subItems: [
       { name: "Sales Order Input", path: "/salesorderautomation", pro: true },
-      { name: "Progress Input", path: "/progressinput", pro: true },
+      // { name: "Progress Input", path: "/progressinput", pro: true },
       // { name: "Progress Input", path: "/progressautomation", pro: false },
     ],
   }
@@ -62,7 +65,9 @@ const navItems: NavItem[] = [
   ,{
     name: "Finance",
     icon: <TableIcon />,
-    subItems: [{ name: "Project (finance)", path: "/projectfinance", pro: false }],
+    subItems: [{ name: "Project (finance)", path: "/projectfinance", pro: false },
+      { name: "Project Details", path: "/projectdetail", pro: false }
+    ],
   },
   // {
   //   name: "Pages",
@@ -340,7 +345,6 @@ const AppSidebar: React.FC = () => {
           ) : (
             <Image
               src="/images/logo/Erbe_Logo_black.png"
-              
               alt="Logo"
               width={32}
               height={32}
