@@ -1,17 +1,31 @@
-// middleware.ts
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { jwtVerify } from 'jose';
 
 export async function middleware(request: NextRequest) {
-    const { pathname } = request.nextUrl;
-    const publicPaths = ['/signin', '/signup', '/404', '/login'];
+  const { pathname } = request.nextUrl;
+
+  // ALLOW ONLY /api/auth/*
+  if (pathname.startsWith('/api/auth')) {
+    return NextResponse.next();
+  }
+
+  // BLOCK ALL OTHER /api/*
+  if (pathname.startsWith('/api')) {
+    return NextResponse.json(
+      { error: 'Unauthorized API access' },
+      { status: 403 }
+    );
+  }
+
+  // PUBLIC ROUTES
+  const publicPaths = ['/signin', '/signup', '/login', '/404'];
   if (publicPaths.some(path => pathname.startsWith(path))) {
     return NextResponse.next();
   }
 
+  // PROTECTED ROUTES REQUIRE SESSION
   const session = request.cookies.get('session')?.value;
-
   if (!session) {
     return NextResponse.redirect(new URL('/signin', request.url));
   }
@@ -28,12 +42,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except:
-     * - api routes
-     * - static files
-     * - signin/signup (authentication pages)
-     * - 404 page
-     */
-  '/((?!_next/static|_next/image|favicon.ico|signin|signup|404|forbidden).*)',  ],
+    '/((?!_next/static|_next/image|favicon.ico).*)'
+  ]
 };

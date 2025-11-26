@@ -104,15 +104,15 @@ export default function SignInForm() {
                   </Label>
                   <div className="relative">
                   
-                     <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:text-white"
-              required
-              disabled={loading}
-              autoComplete="current-password"
-            />
+                  <input
+  type={showPassword ? "text" : "password"}
+  value={password}
+  onChange={(e) => setPassword(e.target.value)}
+  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:text-white"
+  required
+  disabled={loading}
+  autoComplete="current-password"
+/>
                     <span
                       onClick={() => setShowPassword(!showPassword)}
                       className="absolute z-30 -translate-y-1/2 cursor-pointer right-4 top-1/2"
