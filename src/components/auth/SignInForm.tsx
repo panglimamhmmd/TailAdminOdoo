@@ -4,7 +4,7 @@
 import Label from "@/components/form/Label";
 import { ChevronLeftIcon, EyeCloseIcon, EyeIcon } from "@/icons";
 import Link from "next/link";
-import { useRouter } from 'next/navigation';
+// import { useRouter } from 'next/navigation';
 
 import React, { useState } from "react";
 
@@ -14,7 +14,7 @@ export default function SignInForm() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const router = useRouter();
+  // const router = useRouter();
 
 
   const [showPassword, setShowPassword] = useState(false);
@@ -35,8 +35,7 @@ export default function SignInForm() {
       const data = await res.json();
 
       if (data.success) {
-        router.push('/');
-        router.refresh();
+          window.location.href = '/';
       } else {
         setError(data.message || 'Invalid credentials');
         setPassword('');
@@ -105,14 +104,14 @@ export default function SignInForm() {
                   <div className="relative">
                   
                   <input
-  type={showPassword ? "text" : "password"}
-  value={password}
-  onChange={(e) => setPassword(e.target.value)}
-  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:text-white"
-  required
-  disabled={loading}
-  autoComplete="current-password"
-/>
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:text-white"
+                    required
+                    disabled={loading}
+                    autoComplete="current-password"
+                  />
                     <span
                       onClick={() => setShowPassword(!showPassword)}
                       className="absolute z-30 -translate-y-1/2 cursor-pointer right-4 top-1/2"
