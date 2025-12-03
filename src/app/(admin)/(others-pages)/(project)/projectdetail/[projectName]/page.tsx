@@ -229,27 +229,27 @@ function calculateTaskCompletionPercentage(tasks: Task[]) {
   }
 
   const totalTasks = tasks.length;
-  const completedTasks = tasks.filter(task => (task.x_studio_progress ?? 0) === 100).length;
+  
+  // ✅ FIX: Pakai x_studio_persentase, bukan x_studio_progress
+  const completedTasks = tasks.filter(task => (task.x_studio_persentase ?? 0) === 100).length;
   
   // Simple percentage: count completed / total
   const simplePercentage = (completedTasks / totalTasks) * 100;
   
   // Weighted percentage: sum of (bobot × progress)
   const weightedPercentage = tasks.reduce((sum, task) => {
-    const bobot = task.x_studio_bobot ?? 0;
-    const progress = task.x_studio_progress ?? 0;
-    return sum + (bobot * progress);
-  }, 0) * 100;
-  
-  // Average progress: rata-rata progress semua task
-  const averageProgress = tasks.reduce((sum, task) => {
     return sum + (task.x_studio_progress ?? 0);
+  }, 0);
+  
+  // ✅ Total progress dari semua task (jumlahkan semua persentase)
+  const totalProgress = tasks.reduce((sum, task) => {
+    return sum + (task.x_studio_persentase ?? 0);
   }, 0) / totalTasks;
 
   return {
     simplePercentage: Math.round(simplePercentage * 100) / 100,
-    weightedPercentage: Math.round(weightedPercentage * 100) / 100,
-    averageProgress: Math.round(averageProgress * 100) / 100,
+    weightedPercentage: Math.round(weightedPercentage * 100) ,
+    totalProgress: Math.round(totalProgress * 100) / 100, // Total persentase semua task
     completedCount: completedTasks,
     totalCount: totalTasks
   };
@@ -346,26 +346,26 @@ const completion = calculateTaskCompletionPercentage(currentSubProject.tasks);
 </div>
 
         {/* !! tab 2 */}
-         <div className="mb-1 grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-white dark:bg-gray-900 rounded-xl p-4 border border-gray-200 dark:border-gray-800 hover:shadow-lg transition-shadow">
-            <div className="text-2xl font-bold text-gray-900 dark:text-white mb-1">{data.count}</div>
-            <div className="text-sm text-gray-600 dark:text-gray-400">Sub Projects</div>
-          </div>
-          <div className="bg-white dark:bg-gray-900 rounded-xl p-4 border border-gray-200 dark:border-gray-800 hover:shadow-lg transition-shadow">
-            <div className="text-2xl font-bold text-gray-900 dark:text-white mb-1">{currentSubProject?.tasks.length || 0}</div>
-            <div className="text-sm text-gray-600 dark:text-gray-400">Active Tasks</div>
-          </div>
-          <div className="bg-white dark:bg-gray-900 rounded-xl p-4 border border-gray-200 dark:border-gray-800 hover:shadow-lg transition-shadow">
-            <div className="text-2xl font-bold text-gray-900 dark:text-white mb-1">{currentSubProject?.finances.summary.totalInvoices || 0}</div>
-            <div className="text-sm text-gray-600 dark:text-gray-400">Invoices</div>
-          </div>
-          <div className="bg-white dark:bg-gray-900 rounded-xl p-4 border border-gray-200 dark:border-gray-800 hover:shadow-lg transition-shadow">
-            <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mb-1">
-              {((Object.values(currentSubProject?.finances.summary.byStatus || {}).reduce((a, b) => a + b, 0) / (currentSubProject?.finances.summary.totalAmount || 1)) * 100).toFixed(0)}%
+          {/* <div className="mb-1 grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-white dark:bg-gray-900 rounded-xl p-4 border border-gray-200 dark:border-gray-800 hover:shadow-lg transition-shadow">
+              <div className="text-2xl font-bold text-gray-900 dark:text-white mb-1">{data.count}</div>
+              <div className="text-sm text-gray-600 dark:text-gray-400">Sub Projects</div>
             </div>
-            <div className="text-sm text-gray-600 dark:text-gray-400">Completion</div>
-          </div>
-        </div>
+            <div className="bg-white dark:bg-gray-900 rounded-xl p-4 border border-gray-200 dark:border-gray-800 hover:shadow-lg transition-shadow">
+              <div className="text-2xl font-bold text-gray-900 dark:text-white mb-1">{currentSubProject?.tasks.length || 0}</div>
+              <div className="text-sm text-gray-600 dark:text-gray-400">Active Tasks</div>
+            </div>
+            <div className="bg-white dark:bg-gray-900 rounded-xl p-4 border border-gray-200 dark:border-gray-800 hover:shadow-lg transition-shadow">
+              <div className="text-2xl font-bold text-gray-900 dark:text-white mb-1">{currentSubProject?.finances.summary.totalInvoices || 0}</div>
+              <div className="text-sm text-gray-600 dark:text-gray-400">Invoices</div>
+            </div>
+            <div className="bg-white dark:bg-gray-900 rounded-xl p-4 border border-gray-200 dark:border-gray-800 hover:shadow-lg transition-shadow">
+              <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mb-1">
+                {((Object.values(currentSubProject?.finances.summary.byStatus || {}).reduce((a, b) => a + b, 0) / (currentSubProject?.finances.summary.totalAmount || 1)) * 100).toFixed(0)}%
+              </div>
+              <div className="text-sm text-gray-600 dark:text-gray-400">Completion</div>
+            </div>
+          </div> */}
 
         {/* Tabs - Modern Style */}
         <div className="mb-6">
@@ -497,7 +497,7 @@ const completion = calculateTaskCompletionPercentage(currentSubProject.tasks);
         </div>
         
         {/* Additional Stats */}
-        <div className="grid grid-cols-2 gap-3 pt-2">
+        {/* <div className="grid grid-cols-2 gap-3 pt-2">
           <div className="text-center p-2 bg-white/50 dark:bg-gray-800/50 rounded-lg">
             <div className="text-xs text-gray-600 dark:text-gray-400">Completion Rate</div>
             <div className="text-sm font-bold text-gray-900 dark:text-white">
@@ -507,12 +507,12 @@ const completion = calculateTaskCompletionPercentage(currentSubProject.tasks);
           <div className="text-center p-2 bg-white/50 dark:bg-gray-800/50 rounded-lg">
             <div className="text-xs text-gray-600 dark:text-gray-400">Avg Progress</div>
             <div className="text-sm font-bold text-gray-900 dark:text-white">
-              {completion.averageProgress}%
+              {completion.totalProgress}% 
             </div>
           </div>
-        </div>
+        </div> */}
       </div>
-    </div>
+             </div>
 
             </div>
 
@@ -666,108 +666,115 @@ const completion = calculateTaskCompletionPercentage(currentSubProject.tasks);
                   </div>
 
                   {/* Outcome Breakdown */}
-                  <div className="mb-6">
-                    <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Outcome Details</h4>
-                    <div className="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-800">
-                      <table className="w-full  ">
-                        <thead>
-                          <tr className="bg-gray-50 dark:bg-gray-800/50">
-                            <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700 dark:text-gray-300">Category</th>
-                            <th className="text-right py-3 px-4 text-xs font-semibold text-gray-700 dark:text-gray-300">Draft</th>
-                            <th className="text-right py-3 px-4 text-xs font-semibold text-gray-700 dark:text-gray-300">Paid</th>
-                            <th className="text-right py-3 px-4 text-xs font-semibold text-gray-700 dark:text-gray-300">Not Paid</th>
-                            <th className="text-right py-3 px-4 text-xs font-semibold text-gray-700 dark:text-gray-300">Partial</th>
-                            <th className="text-right py-3 px-4 text-xs font-semibold text-gray-700 dark:text-gray-300">Total</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-200 dark:divide-gray-800">
-                          {[
-                            { id: 9, name: 'Vendor Bills' },
-                            { id: 15, name: 'Pelaksana' },
-                            { id: 16, name: 'Tukang Bills' }
-                          ].map(category => {
-                            const items = currentSubProject.finances.groups.filter(g => g.journal_id[0] === category.id);
-                            const paid = items.filter(g => g.status_in_payment === 'paid').reduce((sum, g) => sum + g.amount_total, 0);
-                            const notPaid = items.filter(g => g.status_in_payment === 'not_paid').reduce((sum, g) => sum + g.amount_total, 0);
-                            const partial = items.filter(g => g.status_in_payment === 'partial').reduce((sum, g) => sum + g.amount_total, 0);
-                            const draft = items.filter(g => g.status_in_payment === 'draft').reduce((sum, g) => sum + g.amount_total, 0);
-                            const total = items.reduce((sum, g) => sum + g.amount_total, 0);
-                            
-                            return (
-                              <tr key={category.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
-                                <td className="py-3 px-4 text-sm font-medium text-gray-900 dark:text-white">{category.name}</td>
-                                <td className="py-3 px-4 text-sm text-gray-500 dark:text-gray-500 text-right">
-                                  Rp {draft.toLocaleString()}
-                                </td>
-                                <td className="py-3 px-4 text-sm text-gray-900 dark:text-white text-right">
-                                  Rp {paid.toLocaleString()}
-                                </td>
-                                <td className={`py-3 px-4 text-sm text-right font-medium ${notPaid > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-gray-600 dark:text-gray-400'}`}>
-                                  Rp {notPaid.toLocaleString()}
-                                </td>
-                                <td className="py-3 px-4 text-sm text-amber-600 dark:text-amber-400 text-right">
-                                  Rp {partial.toLocaleString()}
-                                </td>
-                                <td className="py-3 px-4 text-sm font-bold text-gray-900 dark:text-white text-right">
-                                  Rp {total.toLocaleString()}
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
+                {/* Outcome Details */}
+<div className="mb-6">
+  <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Outcome Details</h4>
+  {/* ✅ Tambahkan wrapper dengan overflow-x-auto */}
+  <div className="overflow-x-auto">
+    <div className="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-800 min-w-max">
+      <table className="w-full">
+        <thead>
+          <tr className="bg-gray-50 dark:bg-gray-800/50">
+            <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">Category</th>
+            <th className="text-right py-3 px-4 text-xs font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">Draft</th>
+            <th className="text-right py-3 px-4 text-xs font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">Paid</th>
+            <th className="text-right py-3 px-4 text-xs font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">Not Paid</th>
+            <th className="text-right py-3 px-4 text-xs font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">Partial</th>
+            <th className="text-right py-3 px-4 text-xs font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">Total</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-gray-200 dark:divide-gray-800">
+          {[
+            { id: 9, name: 'Vendor Bills' },
+            { id: 15, name: 'Pelaksana' },
+            { id: 16, name: 'Tukang' }
+          ].map(category => {
+            const items = currentSubProject.finances.groups.filter(g => g.journal_id[0] === category.id);
+            const paid = items.filter(g => g.status_in_payment === 'paid').reduce((sum, g) => sum + g.amount_total, 0);
+            const notPaid = items.filter(g => g.status_in_payment === 'not_paid').reduce((sum, g) => sum + g.amount_total, 0);
+            const partial = items.filter(g => g.status_in_payment === 'partial').reduce((sum, g) => sum + g.amount_total, 0);
+            const draft = items.filter(g => g.status_in_payment === 'draft').reduce((sum, g) => sum + g.amount_total, 0);
+            const total = items.reduce((sum, g) => sum + g.amount_total, 0);
+            
+            return (
+              <tr key={category.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
+                <td className="py-3 px-4 text-sm font-medium text-gray-900 dark:text-white whitespace-nowrap">{category.name}</td>
+                <td className="py-3 px-4 text-sm text-gray-500 dark:text-gray-500 text-right whitespace-nowrap">
+                  Rp {draft.toLocaleString()}
+                </td>
+                <td className="py-3 px-4 text-sm text-gray-900 dark:text-white text-right whitespace-nowrap">
+                  Rp {paid.toLocaleString()}
+                </td>
+                <td className={`py-3 px-4 text-sm text-right font-medium whitespace-nowrap ${notPaid > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-gray-600 dark:text-gray-400'}`}>
+                  Rp {notPaid.toLocaleString()}
+                </td>
+                <td className="py-3 px-4 text-sm text-amber-600 dark:text-amber-400 text-right whitespace-nowrap">
+                  Rp {partial.toLocaleString()}
+                </td>
+                <td className="py-3 px-4 text-sm font-bold text-gray-900 dark:text-white text-right whitespace-nowrap">
+                  Rp {total.toLocaleString()}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
 
-                  {/* Income Breakdown */}
-                  <div>
-                    <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Income Details</h4>
-                    <div className="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-800">
-                      <table className="w-full">
-                        <thead>
-                          <tr className="bg-gray-50 dark:bg-gray-800/50">
-                            <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700 dark:text-gray-300">Category</th>
-                            <th className="text-right py-3 px-4 text-xs font-semibold text-gray-700 dark:text-gray-300">Draft</th>
-                            <th className="text-right py-3 px-4 text-xs font-semibold text-gray-700 dark:text-gray-300">Paid</th>
-                            <th className="text-right py-3 px-4 text-xs font-semibold text-gray-700 dark:text-gray-300">Not Paid</th>
-                            <th className="text-right py-3 px-4 text-xs font-semibold text-gray-700 dark:text-gray-300">Partial</th>
-                            <th className="text-right py-3 px-4 text-xs font-semibold text-gray-700 dark:text-gray-300">Total</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-200 dark:divide-gray-800">
-                          {(() => {
-                            const items = currentSubProject.finances.groups.filter(g => g.journal_id[0] === 8);
-                            const paid = items.filter(g => g.status_in_payment === 'paid').reduce((sum, g) => sum + g.amount_total, 0);
-                            const notPaid = items.filter(g => g.status_in_payment === 'not_paid').reduce((sum, g) => sum + g.amount_total, 0);
-                            const partial = items.filter(g => g.status_in_payment === 'partial').reduce((sum, g) => sum + g.amount_total, 0);
-                            const draft = items.filter(g => g.status_in_payment === 'draft').reduce((sum, g) => sum + g.amount_total, 0);
-                            const total = items.reduce((sum, g) => sum + g.amount_total, 0);
-                            
-                            return (
-                              <tr className="hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
-                                <td className="py-3 px-4 text-sm font-medium text-gray-900 dark:text-white">Invoices</td>
-                                <td className="py-3 px-4 text-sm text-gray-500 dark:text-gray-500 text-right">
-                                  Rp {draft.toLocaleString()}
-                                </td>
-                                <td className="py-3 px-4 text-sm text-gray-900 dark:text-white text-right">
-                                  Rp {paid.toLocaleString()}
-                                </td>
-                                <td className={`py-3 px-4 text-sm text-right font-medium ${notPaid > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-gray-600 dark:text-gray-400'}`}>
-                                  Rp {notPaid.toLocaleString()}
-                                </td>
-                                <td className="py-3 px-4 text-sm text-amber-600 dark:text-amber-400 text-right">
-                                  Rp {partial.toLocaleString()}
-                                </td>
-                                <td className="py-3 px-4 text-sm font-bold text-gray-900 dark:text-white text-right">
-                                  Rp {total.toLocaleString()}
-                                </td>
-                              </tr>
-                            );
-                          })()}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
+{/* Income Breakdown */}
+<div>
+  <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Income Details</h4>
+  {/* ✅ Tambahkan wrapper dengan overflow-x-auto */}
+  <div className="overflow-x-auto">
+    <div className="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-800 min-w-max">
+      <table className="w-full">
+        <thead>
+          <tr className="bg-gray-50 dark:bg-gray-800/50">
+            <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">Category</th>
+            <th className="text-right py-3 px-4 text-xs font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">Draft</th>
+            <th className="text-right py-3 px-4 text-xs font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">Paid</th>
+            <th className="text-right py-3 px-4 text-xs font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">Not Paid</th>
+            <th className="text-right py-3 px-4 text-xs font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">Partial</th>
+            <th className="text-right py-3 px-4 text-xs font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">Total</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-gray-200 dark:divide-gray-800">
+          {(() => {
+            const items = currentSubProject.finances.groups.filter(g => g.journal_id[0] === 8);
+            const paid = items.filter(g => g.status_in_payment === 'paid').reduce((sum, g) => sum + g.amount_total, 0);
+            const notPaid = items.filter(g => g.status_in_payment === 'not_paid').reduce((sum, g) => sum + g.amount_total, 0);
+            const partial = items.filter(g => g.status_in_payment === 'partial').reduce((sum, g) => sum + g.amount_total, 0);
+            const draft = items.filter(g => g.status_in_payment === 'draft').reduce((sum, g) => sum + g.amount_total, 0);
+            const total = items.reduce((sum, g) => sum + g.amount_total, 0);
+            
+            return (
+              <tr className="hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
+                <td className="py-3 px-4 text-sm font-medium text-gray-900 dark:text-white whitespace-nowrap">Invoices</td>
+                <td className="py-3 px-4 text-sm text-gray-500 dark:text-gray-500 text-right whitespace-nowrap">
+                  Rp {draft.toLocaleString()}
+                </td>
+                <td className="py-3 px-4 text-sm text-gray-900 dark:text-white text-right whitespace-nowrap">
+                  Rp {paid.toLocaleString()}
+                </td>
+                <td className={`py-3 px-4 text-sm text-right font-medium whitespace-nowrap ${notPaid > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-gray-600 dark:text-gray-400'}`}>
+                  Rp {notPaid.toLocaleString()}
+                </td>
+                <td className="py-3 px-4 text-sm text-amber-600 dark:text-amber-400 text-right whitespace-nowrap">
+                  Rp {partial.toLocaleString()}
+                </td>
+                <td className="py-3 px-4 text-sm font-bold text-gray-900 dark:text-white text-right whitespace-nowrap">
+                  Rp {total.toLocaleString()}
+                </td>
+              </tr>
+            );
+          })()}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
                 </div>
               </div>
 
