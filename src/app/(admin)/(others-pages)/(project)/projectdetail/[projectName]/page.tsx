@@ -702,7 +702,7 @@ const completion = calculateTaskCompletionPercentage(currentSubProject.tasks);
                 <td className="py-3 px-4 text-sm text-gray-500 dark:text-gray-500 text-right whitespace-nowrap">
                   Rp {draft.toLocaleString()}
                 </td>
-                <td className="py-3 px-4 text-sm text-gray-900 dark:text-white text-right whitespace-nowrap">
+                <td className="py-3 px-4 text-sm text-green-400 dark:text-white text-right whitespace-nowrap">
                   Rp {paid.toLocaleString()}
                 </td>
                 <td className={`py-3 px-4 text-sm text-right font-medium whitespace-nowrap ${notPaid > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-gray-600 dark:text-gray-400'}`}>

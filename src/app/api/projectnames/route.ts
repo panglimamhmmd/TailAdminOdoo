@@ -67,9 +67,9 @@ export async function GET() {
         ]
       },
       id: Math.floor(Math.random() * 1000)
-    };
+    };{}
 
-    const response = await fetch('https://erbe-trial5.odoo.com/jsonrpc', {
+    const response = await fetch('https://erbe.odoo.com/jsonrpc', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(requestBody),
