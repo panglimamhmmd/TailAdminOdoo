@@ -10,7 +10,7 @@ import {
   AlertCircle,
   LayoutDashboard,
   ChevronRight,
-  Loader2
+  
 } from 'lucide-react';
 import { ProjectData } from '@/types/project';
 import { ProjectStats } from '@/components/project-detail/ProjectStats';

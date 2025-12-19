@@ -1,6 +1,6 @@
 'use client';
 import React, { useState, useEffect } from 'react';
-import { PIC_MAP, ProjectName, ProjectPIC } from '@/components/PIC/PIC';
+import { PIC_MAP, ProjectName } from '@/components/PIC/PIC';
 
 export interface ProjectProgress {
   name: string;
