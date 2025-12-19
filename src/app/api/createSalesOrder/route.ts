@@ -238,20 +238,20 @@ const UOM_MAP_DEMO: Record<string, number> = {
 // Types
 // ======================
 
-const testing = true; // false for production
+const testing = false; // false for production
 const config = testing
   ? {
-      apiKey: process.env.ODOO_API_KEY_DEMO,
-      url: 'https://erbe-trial7.odoo.com/jsonrpc',
-      database: 'erbe-trial7',
-      UOM: UOM_MAP_DEMO
-    }
+    apiKey: process.env.ODOO_API_KEY_DEMO,
+    url: 'https://erbe-trial7.odoo.com/jsonrpc',
+    database: 'erbe-trial7',
+    UOM: UOM_MAP_DEMO
+  }
   : {
-      apiKey: process.env.ODOO_API_KEY_PROD,
-      url: 'https://erbe.odoo.com/jsonrpc',
-      database: 'erbe',
-      UOM: UOM_MAP_PROD
-    };
+    apiKey: process.env.ODOO_API_KEY_PROD,
+    url: 'https://erbe.odoo.com/jsonrpc',
+    database: 'erbe',
+    UOM: UOM_MAP_PROD
+  };
 
 if (!config.apiKey) {
   throw new Error(`Missing Odoo API Key for ${testing ? 'DEMO' : 'PROD'}`);
