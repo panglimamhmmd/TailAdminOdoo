@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { SubProject, Task } from '@/types/project';
+import { SubProject } from '@/types/project';
 
 interface TaskProgressCardProps {
   currentSubProject: SubProject;
