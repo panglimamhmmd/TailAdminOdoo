@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-// import DeadlineText from './Deadline';
 import PICList from '@/components/PIC/PICList';
 
 interface ProjectCardProps {
@@ -52,14 +51,6 @@ const ProjectCard = ({
   const timeProgressConstruction = calculateTimeProgress(startDateConstruction, deadlineConstruction);
   const timeProgressInterior = calculateTimeProgress(startDateInterior, deadlineInterior);
 
-  // const formatDate = (date: string) => {
-  //   return new Date(date).toLocaleDateString('id-ID', {
-  //     day: 'numeric',
-  //     month: 'long',
-  //     year: 'numeric'
-  //   });
-  // };
-
   const DoubleProgressBar = ({ 
     label, 
     actualProgress, 
@@ -75,16 +66,16 @@ const ProjectCard = ({
     return (
       <div className="space-y-1">
         <div className="flex items-center justify-between">
-          <span className="text-md font-medium text-gray-700 dark:text-gray-300">
+          <span className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300">
             {label}
           </span>
-          <span className="text-md font-semibold text-gray-800 dark:text-white">
+          <span className="text-xs sm:text-sm font-semibold text-gray-800 dark:text-white">
             {actualProgress}%
           </span>
         </div>
-        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden relative">
+        <div className="h-3 sm:h-4 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden relative">
           <div
-            className="absolute top-0 left-0 h-full bg-gray-400 dark:bg-gray-400 rounded-full transition-all duration-300"
+            className="absolute top-0 left-0 h-full bg-gray-400 dark:bg-gray-500 rounded-full transition-all duration-300"
             style={{ width: `${timeProgress}%` }}
           />
           <div
@@ -102,7 +93,7 @@ const ProjectCard = ({
 
   return (
     <div 
-      className="relative h-80 cursor-pointer"
+       className="relative h-[240px] cursor-pointer"
       style={{ perspective: '1000px' }}
       onClick={handleClick}
     >
@@ -115,20 +106,19 @@ const ProjectCard = ({
       >
         {/* Front Side */}
         <div 
-          className="absolute w-full h-full rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-white/[0.03] p-4 md:p-4 hover:shadow-lg dark:hover:shadow-gray-900/50 transition-shadow duration-300"
+          className="absolute w-full h-full rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-white/[0.03] p-3 hover:shadow-lg dark:hover:shadow-gray-900/50 transition-shadow duration-300"
           style={{ backfaceVisibility: 'hidden' }}
         >
-          <div className="mb-4 md:mb-6 min-h-[3rem] md:min-h-[3.5rem] flex justify-center items-start">
+          <div className="mb-1 min-h-[2.5rem] sm:min-h-[3rem] md:min-h-[3.5rem] flex justify-center items-center">
             <h3
-              className="text-base md:text-lg xl:text-xl font-bold text-gray-800 dark:text-white truncate max-w-[90%] text-center"
-              title={projectName} // biar kalau di-hover muncul full text-nya
+             className="text-sm font-bold text-gray-800 dark:text-white text-center line-clamp-2 leading-tight uppercase truncate"
+              title={projectName}
             >
               {projectName}
             </h3>
           </div>
 
-
-          <div className="space-y-3 md:space-y-4 mb-4 md:mb-6">
+          <div className=" space-y-2">
             <DoubleProgressBar 
               label="Design" 
               actualProgress={progressDesign}
@@ -149,25 +139,21 @@ const ProjectCard = ({
 
         {/* Back Side */}
         <div 
-          className="absolute w-full h-full rounded-2xl border-2 border-indigo-300 dark:border-indigo-800 bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-100 dark:from-gray-800 dark:via-indigo-950 dark:to-purple-950 p-4 md:p-5 shadow-xl"
+className="absolute w-full h-full rounded-xl border-2 border-indigo-300 dark:border-indigo-800 bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-100 dark:from-gray-800 dark:via-indigo-950 dark:to-purple-950 p-3 shadow-xl overflow-hidden"
           style={{ 
             backfaceVisibility: 'hidden',
             transform: 'rotateY(180deg)'
           }}
         >
-          <div className=" md:mb-4">
-            <h3 className="text-base md:text-lg font-bold text-gray-800 dark:text-white mb-1 line-clamp-2 truncate max-w-[90%] ">
-              {projectName}
+          <div className="mb-3 sm:mb-4">
+            <h3 className="text-sm font-bold text-gray-800 dark:text-white text-center uppercase truncate">
+    {projectName}
             </h3>
           </div>
 
-          <div className="space-y-2 md:space-y-3">
-
+          <div className="space-y-2">
             <PICList projectName={projectName.toUpperCase()} />
           </div>
-
-
-          
         </div>
       </div>
     </div>

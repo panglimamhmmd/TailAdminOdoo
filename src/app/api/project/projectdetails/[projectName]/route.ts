@@ -145,7 +145,7 @@ async function odooCall<T>(
   }
 
   const data: OdooResponse<T> = await response.json();
-  
+
   if (data.error) {
     throw new Error(data.error.data?.message || 'Odoo API error');
   }
@@ -180,7 +180,7 @@ async function fetchProjectDetails(projectId: number): Promise<ProjectDetails | 
       [['id', '=', projectId]]
     ],
     {
-      fields: ['id', 'name', 'date_start', 'date', 'user_id', 'partner_id', 'tag_ids', 'x_studio_related_field_180_1j3l9t4is' , 'x_progress_project' ],
+      fields: ['id', 'name', 'date_start', 'date', 'user_id', 'partner_id', 'tag_ids', 'x_studio_related_field_180_1j3l9t4is', 'x_progress_project'],
     }
   );
   return result[0] || null;
@@ -296,7 +296,7 @@ export async function GET(
           };
         } catch (error) {
           console.error(`❌ Error fetching data for project ${project.id}:`, error);
-          
+
           // Return partial data if one sub-project fails
           return {
             id: project.id,
@@ -321,11 +321,11 @@ export async function GET(
     );
 
     // Step 3: Sort by type priority (design -> construction -> interior)
-    const typePriority: Record<string, number> = { 
-      design: 1, 
-      construction: 2, 
-      interior: 3, 
-      other: 4 
+    const typePriority: Record<string, number> = {
+      design: 1,
+      construction: 2,
+      interior: 3,
+      other: 4
     };
     subProjectsData.sort((a, b) => typePriority[a.type] - typePriority[b.type]);
 

@@ -238,12 +238,12 @@ const UOM_MAP_DEMO: Record<string, number> = {
 // Types
 // ======================
 
-const testing = false; // false for production
+const testing = true; // false for production
 const config = testing
   ? {
       apiKey: process.env.ODOO_API_KEY_DEMO,
-      url: 'https://erbe-trial5.odoo.com/jsonrpc',
-      database: 'erbe-trial5',
+      url: 'https://erbe-trial7.odoo.com/jsonrpc',
+      database: 'erbe-trial7',
       UOM: UOM_MAP_DEMO
     }
   : {
@@ -251,8 +251,6 @@ const config = testing
       url: 'https://erbe.odoo.com/jsonrpc',
       database: 'erbe',
       UOM: UOM_MAP_PROD
-      
-      
     };
 
 if (!config.apiKey) {
