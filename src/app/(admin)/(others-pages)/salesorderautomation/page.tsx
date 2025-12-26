@@ -65,14 +65,56 @@ interface ValidationWarning {
   value: string;
 }
 
-// Column mapping dari user-friendly ke internal
-const COLUMN_MAPPING: { [key: string]: string } = {
+// Field Types
+type FieldType = 
+  | 'ignore' 
+  | 'product_name' 
+  | 'qty' 
+  | 'uom' 
+  | 'price_unit' 
+  | 'description' 
+  | 'discount';
+
+const FIELD_OPTIONS: { value: FieldType; label: string; required?: boolean }[] = [
+  { value: 'ignore', label: '❌ Ignore Column' },
+  { value: 'product_name', label: '🏷️ Item / Product Name', required: true },
+  { value: 'qty', label: '🔢 Quantity', required: true },
+  { value: 'uom', label: '📏 UoM (Unit)', required: true },
+  { value: 'price_unit', label: '💰 Unit Price', required: true },
+  { value: 'description', label: '📝 Description' },
+  { value: 'discount', label: '🏷️ Discount %' },
+];
+
+// Column mapping dari user-friendly ke internal (untuk Auto-Detect)
+const AUTO_DETECT_MAPPING: { [key: string]: FieldType } = {
   'item pekerjaan': 'product_name',
-  'harga': 'price_unit',
-  'qty': 'qty',
-  'sat': 'uom',
+  'nama barang': 'product_name',
+  'item': 'product_name',
+  'produk': 'product_name',
+  'product': 'product_name',
+  'deskripsi': 'description',
   'description': 'description',
-  'discount': 'discount'
+  'ket': 'description',
+  'keterangan': 'description',
+  'qty': 'qty',
+  'jumlah': 'qty',
+  'kuantitas': 'qty',
+  'quantity': 'qty',
+  'vol': 'qty',
+  'volume': 'qty',
+  'sat': 'uom',
+  'satuan': 'uom',
+  'uom': 'uom',
+  'unit': 'uom',
+  'harga': 'price_unit',
+  'harga satuan': 'price_unit',
+  'unit price': 'price_unit',
+  'price': 'price_unit',
+  'rate': 'price_unit',
+  'disc': 'discount',
+  'discount': 'discount',
+  'diskon': 'discount',
+  'potongan': 'discount',
 };
 
 // Daftar UOM yang valid
@@ -84,6 +126,10 @@ const VALID_UOMS = [
 ];
 
 export default function OdooExcelUploader() {
+  const [step, setStep] = useState<'input' | 'mapping' | 'preview'>('input');
+  const [rawRows, setRawRows] = useState<string[][]>([]);
+  const [columnMapping, setColumnMapping] = useState<Record<number, FieldType>>({});
+  
   const [parsedData, setParsedData] = useState<FormattedData | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [response, setResponse] = useState<ApiResponse | null>(null);
@@ -164,182 +210,197 @@ export default function OdooExcelUploader() {
     };
   };
 
-  const normalizeHeader = (header: string): string => {
-    const normalized = header.trim().toLowerCase();
-    return COLUMN_MAPPING[normalized] || normalized;
-  };
-
-  const parsePastedData = (text: string): void => {
-    setParseError(null);
-    setParsedData(null);
-    setResponse(null);
-    setError(null);
-    setConfirmed(false);
-    setWarnings([]);
-
-    if (!soNumber.trim()) {
-      setParseError('SO Number wajib diisi sebelum parsing data');
-      return;
-    }
-
-    try {
-      const lines = text.trim().split('\n');
-      if (lines.length < 2) {
-        setParseError('Data harus memiliki minimal header dan 1 baris data');
-        return;
-      }
-
-      const headerLine = lines[0];
-      const headerCells = headerLine.split('\t');
-      
-      const emptyHeaders = headerCells.filter((h, idx) => {
-        if (idx === 0) return false;
-        if (idx === headerCells.length - 1) return false;
-        return !h.trim();
-      });
-      
-      if (emptyHeaders.length > 0) {
-        setParseError('⚠️ Terdeteksi kemungkinan merged cells. Pastikan tidak ada cell yang di-merge di Excel/Sheets sebelum copy.');
-        return;
-      }
-
-      const headers = headerCells.map(h => normalizeHeader(h));
-
-      const requiredColumns = ['product_name', 'qty', 'uom', 'price_unit'];
-      const missingColumns = requiredColumns.filter(col => !headers.includes(col));
-
-      if (missingColumns.length > 0) {
-          setParseError(`Kolom wajib tidak lengkap. Missing: ${missingColumns.map(c => {
-            const found = Object.entries(COLUMN_MAPPING).find(([ v]) => v === c);
-            return found ? found[0].toUpperCase() : c;
-          }).join(', ')}`);
-          return;
-        }
-
-      const columnIndices: { [key: string]: number } = {};
-      headers.forEach((header, idx) => {
-        columnIndices[header] = idx;
-      });
-
-      const dataLines = lines.slice(1).filter(line => line.trim());
-      const formattedLines: FormattedLine[] = [];
-      const newWarnings: ValidationWarning[] = [];
-
-      dataLines.forEach((line, lineIdx) => {
-        const cells = line.split('\t');
-        const rowNum = lineIdx + 2;
-
-        const qtyStr = String(cells[columnIndices.qty] || '').trim();
-        const qtyResult = parsePrice(qtyStr);
-        const qty = qtyResult.value;
-
-        if (qtyResult.isAmbiguous) {
-          newWarnings.push({
-            row: rowNum,
-            field: 'QTY',
-            message: `Format ambigu "${qtyStr}" dibaca sebagai ${qty}`,
-            value: qtyStr
-          });
-        }
-
-        if (isNaN(qty) || qty === 0) {
-          newWarnings.push({
-            row: rowNum,
-            field: 'QTY',
-            message: `QTY tidak valid atau kosong: "${qtyStr}"`,
-            value: qtyStr
-          });
-          return;
-        }
-
-        const priceStr = String(cells[columnIndices.price_unit] || '').trim();
-        const priceResult = parsePrice(priceStr);
-        const price = priceResult.value;
-
-        if (priceResult.isAmbiguous) {
-          newWarnings.push({
-            row: rowNum,
-            field: 'Harga',
-            message: `Format ambigu "${priceStr}" dibaca sebagai ${price.toLocaleString('id-ID')}`,
-            value: priceStr
-          });
-        }
-
-        if (isNaN(price) || price === 0) {
-          newWarnings.push({
-            row: rowNum,
-            field: 'Harga',
-            message: `Harga tidak valid atau kosong: "${priceStr}"`,
-            value: priceStr
-          });
-          return;
-        }
-
-        const uom = String(cells[columnIndices.uom] || '').trim().toLowerCase();
-        if (!uom) {
-          newWarnings.push({
-            row: rowNum,
-            field: 'UOM',
-            message: 'UOM kosong',
-            value: ''
-          });
-          return;
-        }
-
-        if (!VALID_UOMS.includes(uom)) {
-          newWarnings.push({
-            row: rowNum,
-            field: 'UOM',
-            message: `UOM "${uom}" tidak dikenal sistem. UOM valid: ${VALID_UOMS.slice(0, 10).join(', ')}, dll.`,
-            value: uom
-          });
-        }
-
-        const productName = String(cells[columnIndices.product_name] || '').trim();
-        if (!productName) {
-          newWarnings.push({
-            row: rowNum,
-            field: 'Item Pekerjaan',
-            message: 'Item Pekerjaan kosong',
-            value: ''
-          });
-          return;
-        }
-
-        formattedLines.push({
-          so_number: soNumber.trim(),
-          product_name: productName,
-          description: columnIndices.description !== undefined 
-            ? String(cells[columnIndices.description] || '').trim() 
-            : '',
-          qty: qty,
-          uom: uom,
-          price_unit: price,
-          discount: columnIndices.discount !== undefined 
-            ? (parsePrice(String(cells[columnIndices.discount] || '0')).value || 0)
-            : 0
-        });
-      });
-
-      setWarnings(newWarnings);
-
-      if (formattedLines.length === 0) {
-        setParseError('Tidak ada data yang valid ditemukan. Periksa warning di bawah untuk detailnya.');
-        return;
-      }
-
-      setParsedData({ lines: formattedLines });
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-      setParseError(`Error parsing pasted data: ${errorMessage}`);
-    }
-  };
+  /* Removed normalizeHeader as it's replaced by dynamic mapping logic */
 
   const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>): void => {
     e.preventDefault();
     const text = e.clipboardData.getData('text');
     setPastedText(text);
-    parsePastedData(text);
+    processInputStep(text);
+  };
+
+  const processInputStep = (text: string) => {
+    setParseError(null);
+    if (!soNumber.trim()) {
+      setParseError('SO Number wajib diisi sebelum parsing data');
+      return;
+    }
+
+    const rows = text.trim().split('\n').map(row => row.split('\t'));
+    if (rows.length < 2) {
+      setParseError('Data harus memiliki minimal header dan 1 baris data');
+      return;
+    }
+
+    // Check for potential merged cells (empty headers)
+    const headerCells = rows[0];
+    const emptyHeaders = headerCells.filter((h, idx) => {
+      if (idx === 0) return false;
+      if (idx === headerCells.length - 1) return false;
+      return !h.trim();
+    });
+      
+    if (emptyHeaders.length > 0) {
+      setParseError('⚠️ Terdeteksi kemungkinan merged cells. Pastikan tidak ada cell yang di-merge di Excel/Sheets sebelum copy.');
+      return;
+    }
+
+    setRawRows(rows);
+
+    // Initial Guess for Mapping
+    const initialMapping: Record<number, FieldType> = {};
+    headerCells.forEach((header, idx) => {
+      const normalized = header.trim().toLowerCase();
+      // Find matching key in AUTO_DETECT_MAPPING
+      const matchKey = Object.keys(AUTO_DETECT_MAPPING).find(key => normalized.includes(key));
+      if (matchKey) {
+        initialMapping[idx] = AUTO_DETECT_MAPPING[matchKey];
+      } else {
+        initialMapping[idx] = 'ignore';
+      }
+    });
+
+    setColumnMapping(initialMapping);
+    setStep('mapping');
+  };
+
+  const processMappingStep = () => {
+    // Validate that all required fields are mapped
+    const currentValues = Object.values(columnMapping);
+    const requiredFields = FIELD_OPTIONS.filter(f => f.required).map(f => f.value);
+    const missingFields = requiredFields.filter(field => !currentValues.includes(field));
+
+    if (missingFields.length > 0) {
+      const missingLabels = missingFields.map(f => FIELD_OPTIONS.find(opt => opt.value === f)?.label).join(', ');
+      setParseError(`Harap mapping kolom berikut: ${missingLabels}`);
+      return;
+    }
+
+    // Parse Data using mapping
+    const dataRows = rawRows.slice(1);
+    const formattedLines: FormattedLine[] = [];
+    const newWarnings: ValidationWarning[] = [];
+
+    // Map field type to column index
+    const fieldIndexMap: Record<string, number> = {};
+    Object.entries(columnMapping).forEach(([colIdx, fieldType]) => {
+      if (fieldType !== 'ignore') {
+        fieldIndexMap[fieldType] = parseInt(colIdx);
+      }
+    });
+
+    dataRows.forEach((row, rowIdx) => {
+      // Skip empty rows
+      if (row.every(cell => !cell.trim())) return;
+
+      const rowNum = rowIdx + 2;
+
+      // Helper to get value securely
+      const getVal = (field: FieldType): string => {
+        const idx = fieldIndexMap[field];
+        return idx !== undefined && row[idx] ? String(row[idx]).trim() : '';
+      };
+
+      // 1. QTY
+      const qtyStr = getVal('qty');
+      const qtyResult = parsePrice(qtyStr);
+      let qty = qtyResult.value;
+
+      if (qtyResult.isAmbiguous) {
+        newWarnings.push({
+          row: rowNum,
+          field: 'QTY',
+          message: `Format ambigu "${qtyStr}" dibaca sebagai ${qty}`,
+          value: qtyStr
+        });
+      }
+
+      if (isNaN(qty) || qty === 0) {
+        newWarnings.push({
+          row: rowNum,
+          field: 'QTY',
+          message: `QTY tidak valid atau kosong: "${qtyStr}"`,
+          value: qtyStr
+        });
+        // Dont return, allow editing in next step (or force 0)
+        qty = 0; 
+      }
+
+      // 2. Price
+      const priceStr = getVal('price_unit');
+      const priceResult = parsePrice(priceStr);
+      const price = priceResult.value;
+
+      if (priceResult.isAmbiguous) {
+        newWarnings.push({
+          row: rowNum,
+          field: 'Harga',
+          message: `Format ambigu "${priceStr}" dibaca sebagai ${price.toLocaleString('id-ID')}`,
+          value: priceStr
+        });
+      }
+
+      // 3. UOM
+      const uom = getVal('uom').toLowerCase();
+      if (!uom) {
+        newWarnings.push({
+          row: rowNum,
+          field: 'UOM',
+          message: 'UOM kosong',
+          value: ''
+        });
+      } else if (!VALID_UOMS.includes(uom)) {
+        newWarnings.push({
+          row: rowNum,
+          field: 'UOM',
+          message: `UOM "${uom}" tidak dikenal sistem.`,
+          value: uom
+        });
+      }
+
+      // 4. Product Name
+      const productName = getVal('product_name');
+      if (!productName) {
+        newWarnings.push({
+          row: rowNum,
+          field: 'Item Pekerjaan',
+          message: 'Item Pekerjaan kosong',
+          value: ''
+        });
+      }
+
+      // 5. Discount
+      const discountStr = getVal('discount');
+      const discount = discountStr ? parsePrice(discountStr).value : 0;
+      
+      // 6. Description
+      const description = getVal('description');
+
+      formattedLines.push({
+        so_number: soNumber.trim(),
+        product_name: productName,
+        description: description,
+        qty: qty,
+        uom: uom,
+        price_unit: price,
+        discount: discount
+      });
+    });
+
+    if (formattedLines.length === 0) {
+      setParseError('Tidak ada data yang valid ditemukan.');
+      return;
+    }
+
+    setWarnings(newWarnings);
+    setParsedData({ lines: formattedLines });
+    setParseError(null);
+    setStep('preview');
+  };
+
+  const handleRestart = () => {
+     setStep('input');
+     resetForm();
   };
 
   const handleSubmit = async (): Promise<void> => {
@@ -388,6 +449,8 @@ export default function OdooExcelUploader() {
     setEditingCell(null);
     setSoNumber('');
     setWarnings([]);
+    setRawRows([]);
+    setColumnMapping({});
   };
 
   const handleCellEdit = (rowIdx: number, field: keyof FormattedLine, value: string): void => {
@@ -424,17 +487,17 @@ export default function OdooExcelUploader() {
             <h1 className="text-4xl font-bold text-gray-800 dark:text-white">
               📊 Odoo Sales Order Creator
             </h1>
-            {(parsedData || response) && (
+            {(step !== 'input' || response) && (
               <button
-                onClick={resetForm}
+                onClick={handleRestart}
                 className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
               >
-                🔄 Reset
+                🔄 Reset / Start Over
               </button>
             )}
           </div>
 
-          {!parsedData && !response && (
+          {step === 'input' && !response && (
             <div className="space-y-6">
               <div className="bg-blue-50 dark:bg-blue-950 border-l-4 border-blue-500 dark:border-blue-400 p-4 rounded transition-colors duration-300">
                 <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">
@@ -506,15 +569,15 @@ Pastikan sudah:
                 />
                 {pastedText && (
                   <button
-                    onClick={() => parsePastedData(pastedText)}
+                    onClick={() => processInputStep(pastedText)}
                     disabled={!soNumber.trim()}
                     className={`w-full py-3 px-4 rounded-lg font-semibold transition-colors ${
                       !soNumber.trim()
                         ? 'bg-gray-400 text-white cursor-not-allowed'
-                        : 'bg-green-600 text-white hover:bg-green-700'
+                        : 'bg-blue-600 text-white hover:bg-blue-700'
                     }`}
                   >
-                    {!soNumber.trim() ? '⚠️ Isi SO Number Dulu' : '🔍 Parse Data'}
+                    {!soNumber.trim() ? '⚠️ Isi SO Number Dulu' : 'Next: Map Columns ➡️'}
                   </button>
                 )}
               </div>
@@ -559,7 +622,86 @@ Pastikan sudah:
             </div>
           )}
 
-          {parsedData && !response && (
+          {/* STEP 2: MAPPING */}
+          {step === 'mapping' && (
+             <div className="space-y-6">
+                <div className="bg-indigo-50 dark:bg-indigo-950 border-l-4 border-indigo-500 p-4 rounded">
+                  <h3 className="font-semibold text-indigo-900 dark:text-indigo-100 mb-2">
+                    🔗 Step 2: Map Columns
+                  </h3>
+                  <p className="text-sm text-indigo-800 dark:text-indigo-200">
+                    Sesuaikan kolom dari data yang di-paste dengan field di sistem.
+                    Pastikan semua field wajib (bertanda *) terpilih.
+                  </p>
+                </div>
+
+                <div className="overflow-x-auto border border-gray-200 dark:border-gray-700 rounded-lg">
+                  <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm">
+                    <thead className="bg-gray-50 dark:bg-gray-800">
+                      <tr>
+                        {rawRows[0]?.map((header, idx) => (
+                          <th key={idx} className="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400 min-w-[150px]">
+                            <div className="mb-2 text-xs uppercase tracking-wider">{header || `Column ${idx + 1}`}</div>
+                            <select
+                              value={columnMapping[idx] || 'ignore'}
+                              onChange={(e) => setColumnMapping(prev => ({ ...prev, [idx]: e.target.value as FieldType }))}
+                              className={`w-full p-2 rounded border focus:ring-2 focus:ring-blue-500 outline-none transition-colors ${
+                                columnMapping[idx] && columnMapping[idx] !== 'ignore' 
+                                  ? 'bg-blue-50 border-blue-300 text-blue-700 dark:bg-blue-900 dark:border-blue-700 dark:text-blue-100 font-semibold' 
+                                  : 'bg-white border-gray-300 text-gray-600 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-400'
+                              }`}
+                            >
+                              {FIELD_OPTIONS.map(opt => (
+                                <option key={opt.value} value={opt.value}>
+                                  {opt.label} {opt.required ? '*' : ''}
+                                </option>
+                              ))}
+                            </select>
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800">
+                      {/* Show first 5 rows as preview */}
+                      {rawRows.slice(1, 6).map((row, rIdx) => (
+                         <tr key={rIdx}>
+                           {row.map((cell, cIdx) => (
+                             <td key={cIdx} className={`px-4 py-2 text-gray-800 dark:text-gray-300 ${
+                               columnMapping[cIdx] !== 'ignore' ? 'bg-blue-50/30 dark:bg-blue-900/10' : ''
+                             }`}>
+                               {cell}
+                             </td>
+                           ))}
+                         </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {parseError && (
+                  <div className="p-3 bg-red-100 text-red-700 rounded-lg text-sm">
+                    {parseError}
+                  </div>
+                )}
+
+                <div className="flex justify-between pt-4 border-t border-gray-200 dark:border-gray-700 mt-4">
+                   <button 
+                     onClick={() => setStep('input')}
+                     className="px-6 py-2 rounded-lg text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
+                   >
+                     ⬅️ Back
+                   </button>
+                   <button 
+                     onClick={processMappingStep}
+                     className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold shadow-lg transition-transform active:scale-95"
+                   >
+                     Preview Data ➡️
+                   </button>
+                </div>
+             </div>
+          )}
+
+          {step === 'preview' && !response && parsedData && (
             <div className="space-y-6">
               <div className="bg-green-50 dark:bg-green-950 border border-green-200 rounded-lg p-4">
                 <div className="flex items-center">
@@ -592,17 +734,26 @@ Pastikan sudah:
                 </div>
               </div>
 
-              <div className="flex items-center gap-3 mt-2">
-                <input
-                  id="confirm-checkbox"
-                  type="checkbox"
-                  checked={confirmed}
-                  onChange={(e) => setConfirmed(e.target.checked)}
-                  className="h-4 w-4"
-                />
-                <label htmlFor="confirm-checkbox" className="text-sm text-gray-700 dark:text-gray-300">
-                  Saya sudah cek summary dan data sample. Saya ingin melanjutkan ke submit.
-                </label>
+              <div className="flex flex-col md:flex-row items-center justify-between gap-4 mt-4">
+                <button
+                   onClick={() => setStep('mapping')}
+                   className="text-sm text-gray-500 hover:text-gray-700 underline"
+                >
+                  🔙 Re-Map Columns
+                </button>
+
+                <div className="flex items-center gap-3">
+                  <input
+                    id="confirm-checkbox"
+                    type="checkbox"
+                    checked={confirmed}
+                    onChange={(e) => setConfirmed(e.target.checked)}
+                    className="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                  <label htmlFor="confirm-checkbox" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Saya sudah cek summary dan data. Lanjut submit.
+                  </label>
+                </div>
               </div>
 
               <div className="bg-yellow-50 dark:bg-yellow-950 border-l-4 border-yellow-500 p-3 rounded">
