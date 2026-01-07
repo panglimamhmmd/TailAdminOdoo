@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { odooConfig } from "@/utils/odooConfig";
 
 // ✅ KRITIS: Disable static generation untuk route ini
 export const dynamic = 'force-dynamic';
@@ -31,6 +32,7 @@ interface ProjectDetail {
   tag_ids?: [number, string][];
   x_studio_related_field_180_1j3l9t4is?: string;
   x_progress_project?: number;
+  x_studio_person_in_charge_pic?:  number[]; // IDs
 }
 
 interface AccountMove {
@@ -85,6 +87,7 @@ interface InvoiceSummary {
 
 interface DetailedProject {
   project: ProjectDetail | null;
+  pic_names: string[]; // Added field
   invoices: AccountMove[];
   invoice_summary: InvoiceSummary;
   tasks: ProjectTask[];
@@ -99,12 +102,13 @@ async function fetchOdooData<T>(
   domain: unknown[],
   fields: string[]
 ): Promise<T[]> {
-  const apiKey = process.env.ODOO_API_KEY_PROD;
+  const { apiKey, url, database } = odooConfig;
+  
   if (!apiKey) {
-    throw new Error("ODOO_API_KEY_PROD is not configured");
+    throw new Error(`ODOO_API_KEY is not configured for ${odooConfig.label}`);
   }
 
-  const response = await fetch("https://erbe.odoo.com/jsonrpc", {
+  const response = await fetch(url, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -116,7 +120,7 @@ async function fetchOdooData<T>(
         service: "object",
         method: "execute_kw",
         args: [
-          "erbe",
+          database,
           2,
           apiKey,
           model,
@@ -147,12 +151,13 @@ async function fetchOdooData<T>(
 
 // Helper function untuk search project
 async function searchProjectByName(projectName: string): Promise<ProjectBasic[]> {
-  const apiKey = process.env.ODOO_API_KEY_PROD;
+  const { apiKey, url, database } = odooConfig;
+
   if (!apiKey) {
-    throw new Error("ODOO_API_KEY_PROD is not configured");
+    throw new Error("ODOO_API_KEY is not configured");
   }
 
-  const response = await fetch("https://erbe.odoo.com/jsonrpc", {
+  const response = await fetch(url, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -164,7 +169,7 @@ async function searchProjectByName(projectName: string): Promise<ProjectBasic[]>
         service: "object",
         method: "execute_kw",
         args: [
-          "erbe",
+          database,
           2,
           apiKey,
           "project.project",
@@ -308,8 +313,25 @@ export async function GET(
           const projectDetail = await fetchOdooData<ProjectDetail>(
             "project.project",
             [["id", "=", projectId]],
-            ["id", "name", "stage_id", "user_id", "partner_id", "date_start", "date", "tag_ids" , "x_studio_related_field_180_1j3l9t4is" , "x_progress_project"]
+            ["id", "name", "stage_id", "user_id", "partner_id", "date_start", "date", "tag_ids" , "x_studio_related_field_180_1j3l9t4is" , "x_progress_project", "x_studio_person_in_charge_pic"]
           );
+          
+          // Fetch PIC Names
+          let picNames: string[] = [];
+          const picIds = (projectDetail[0]?.x_studio_person_in_charge_pic as unknown as number[]) || [];
+          
+          if (picIds.length > 0) {
+              try {
+                const employees = await fetchOdooData<{id: number, name: string}>(
+                    "hr.employee",
+                    [["id", "in", picIds]],
+                    ["id", "name"]
+                );
+                picNames = employees.map(e => e.name);
+              } catch (e) {
+                  console.error("Error fetching PIC names", e);
+              }
+          }
 
           const accountMoves = await fetchOdooData<AccountMove>(
             "account.move",
@@ -327,6 +349,7 @@ export async function GET(
 
           return {
             project: projectDetail[0] || null,
+            pic_names: picNames,
             invoices: accountMoves || [],
             invoice_summary: invoiceSummary,
             tasks: projectTasks || [],
@@ -337,6 +360,7 @@ export async function GET(
           console.error(`Error fetching details for project ${projectId}:`, err);
           return {
             project: { id: projectId, name: project.name || "" },
+            pic_names: [],
             invoices: [],
             invoice_summary: {
               journals: [],

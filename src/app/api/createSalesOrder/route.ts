@@ -4,260 +4,19 @@ export const revalidate = 0;
 export const dynamic = 'force-dynamic';
 
 
-// !uom mapping prod
-const UOM_MAP_PROD: Record<string, number> = {
-  'Units': 1,
-  'units': 1,
-  'Unit': 95,
-  'unit': 95,
-  'Titik': 29,
-  'titik': 29,
-  'Lembar': 34,
-  'lembar': 34,
-  'Pcs': 35,
-  'pcs': 35,
-  'Bungkus': 36,
-  'bungkus': 36,
-  'Dus': 38,
-  'dus': 38,
-  'Batang': 39,
-  'batang': 39,
-  'Pak': 42,
-  'pak': 42,
-  'Roll': 43,
-  'roll': 43,
-  'Rit': 44,
-  'rit': 44,
-  'Set': 45,
-  'set': 45,
-  'Pasang': 46,
-  'pasang': 46,
-  'Kaleng': 47,
-  'kaleng': 47,
-  'Botol': 48,
-  'botol': 48,
-  'Ikat': 49,
-  'ikat': 49,
-  'Orang': 50,
-  'orang': 50,
-  'Lusin': 52,
-  'lusin': 52,
-  'Box': 54,
-  'box': 54,
-  'Engkel': 31,
-  'engkel': 31,
-  'Pick Up': 68,
-  'pick up': 68,
-  'Weeks': 77,
-  'weeks': 77,
-  'Months': 78,
-  'months': 78,
-  'Hari': 106,
-  'hari': 106,
-  'Lot': 96,
-  'lot': 96,
-  'DO': 110,
-  'do': 110,
-  'Watt': 92,
-  'watt': 92,
-  'An Tgg': 91,
-  'an tgg': 91,
-  'Jerigen': 117,
-  'jerigen': 117,
-  'Sak': 32,
-  'sak': 32,
-  'm': 5,
-  'meter': 5,
-  'm1': 28,
-  'm¹': 28,
-  'm2': 9,
-  'm²': 9,
-  'meter persegi': 9,
-  'm3': 11,
-  'm³': 11,
-  'meter kubik': 11,
-  'mm': 6,
-  'cm': 8,
-  'km': 7,
-  'in': 17,
-  'inch': 17,
-  'ft': 18,
-  'feet': 18,
-  'yd': 19,
-  'yard': 19,
-  'mi': 20,
-  'mile': 20,
-  'ft²': 21,
-  'ft2': 21,
-  'in³': 25,
-  'in3': 25,
-  'ft³': 26,
-  'ft3': 26,
-  'm³ (unit)': 97,
-  'g': 13,
-  'gram': 13,
-  'kg': 12,
-  'kilogram': 12,
-  't': 14,
-  'ton': 14,
-  'lb': 15,
-  'pound': 15,
-  'oz': 16,
-  'ons': 55,
-  'l': 10,
-  'L': 10,
-  'liter': 10,
-  'Liter': 105,
-  'gal (US)': 24,
-  'Galon': 37,
-  'galon': 37,
-  'qt (US)': 23,
-  'fl oz (US)': 22,
-  'Truk': 30,
-  'truk': 30,
-  'Engkel (Vol)': 31,
-  'Pail': 33,
-  'pail': 33,
-  'ls': 27,
-  'lump sum': 27,
-  'm (Commercial)': 122,
-  'Botol (Length)': 123
-};
-
-
-// !uom mapping demo
-const UOM_MAP_DEMO: Record<string, number> = {
-  // Unit (category_id: 1)
-  "Unit": 1,
-  "unit": 1,
-  "Lembar": 28,
-  "lembar": 28,
-  "Pcs": 29,
-  "pcs": 29,
-  "Sak": 31,
-  "sak": 31,
-  "Box": 32,
-  "box": 32,
-  "Batang": 35,
-  "batang": 35,
-  "Roll": 38,
-  "roll": 38,
-  "Botol": 41,
-  "botol": 41,
-  "Kaleng": 42,
-  "kaleng": 42,
-  "Galon": 43,
-  "galon": 43,
-  "Pail": 44,
-  "pail": 44,
-  "Dus": 45,
-  "dus": 45,
-  "Pak": 46,
-  "pak": 46,
-  "Bungkus": 52,
-  "bungkus": 52,
-  "Set": 53,
-  "set": 53,
-  "Pasang": 54,
-  "pasang": 54,
-  "Lusin": 55,
-  "lusin": 55,
-  "Ikat": 59,
-  "ikat": 59,
-  "Orang": 60,
-  "orang": 60,
-  "ls": 68,
-  "LS": 68,
-
-  // Length / Distance (category_id: 4)
-  "mm": 6,
-  "cm": 8,
-  "m": 5,
-  "meter": 39,
-  "m¹": 67,
-  "in": 17,
-  "ft": 18,
-  "yd": 19,
-  "km": 7,
-  "mi": 20,
-
-  // Surface (category_id: 5)
-  "m²": 9,
-  "m2": 9,
-  "ft²": 21,
-
-  // Weight (category_id: 2)
-  "Kg": 12,
-  "kg": 12,
-  "g": 13,
-  "oz": 16,
-  "lb": 15,
-  "t": 14,
-
-  // Volume (category_id: 6)
-  "L": 10,
-  "Liter": 51,
-  "liter": 51,
-  "m³": 11,
-  "M3": 63,
-  "in³": 25,
-  "ft³": 26,
-  "qt (US)": 23,
-  "fl oz (US)": 22,
-  "gal (US)": 24,
-  "Truk": 47,
-  "truk": 47,
-  "Rit": 48,
-  "rit": 48,
-  "Engkel": 49,
-  "engkel": 49,
-  "Colt": 50,
-  "colt": 50,
-  "Carry": 56,
-  "carry": 56,
-  "Kijang": 57,
-  "kijang": 57,
-  "DO": 61,
-  "do": 61,
-  "Mobil": 64,
-  "mobil": 64,
-  "Ons": 65,
-  "ons": 65,
-
-  // Working Time (category_id: 3)
-  "Hours": 4,
-  "hours": 4,
-  "Days": 3,
-  "days": 3,
-
-  // Unsorted / Imported Units (category_id: 7)
-  "m_unsorted": 69
-};
+import { odooConfig } from '@/utils/odooConfig';
 
 // ======================
 // Types
 // ======================
 
-const testing = false; // false for production
-const config = testing
-  ? {
-    apiKey: process.env.ODOO_API_KEY_DEMO,
-    url: 'https://erbe-trial7.odoo.com/jsonrpc',
-    database: 'erbe-trial7',
-    UOM: UOM_MAP_DEMO
-  }
-  : {
-    apiKey: process.env.ODOO_API_KEY_PROD,
-    url: 'https://erbe.odoo.com/jsonrpc',
-    database: 'erbe',
-    UOM: UOM_MAP_PROD
-  };
+const { apiKey, url, database, UOM } = odooConfig;
 
-if (!config.apiKey) {
-  throw new Error(`Missing Odoo API Key for ${testing ? 'DEMO' : 'PROD'}`);
+if (!apiKey) {
+  throw new Error(`Missing Odoo API Key for ${odooConfig.label}`);
 }
 
-const { apiKey, url, database, UOM } = config;
+
 
 
 
@@ -555,11 +314,11 @@ export async function POST(request: Request) {
         let soCreated = false;
 
         if (!soId) {
-          console.log(`SO ${soNumber} not found, creating new...`);
+          // console.log(`SO ${soNumber} not found, creating new...`);
           const createdId = await createSalesOrder(apiKey, soNumber);
           soId = Array.isArray(createdId) ? createdId[0] : createdId;
           soCreated = true;
-          console.log(`SO created with ID: ${soId}`);
+          // console.log(`SO created with ID: ${soId}`);
         }
 
         const lineResults: LineResult[] = [];
@@ -572,10 +331,10 @@ export async function POST(request: Request) {
             let productCreated = false;
 
             if (!productTemplateId) {
-              console.log(`Product "${line.product_name}" not found, creating new...`);
+              // console.log(`Product "${line.product_name}" not found, creating new...`);
               productTemplateId = await createProduct(apiKey, line.product_name);
               productCreated = true;
-              console.log(`Product template created with ID: ${productTemplateId}`);
+              // console.log(`Product template created with ID: ${productTemplateId}`);
             }
 
             // Get product variant ID (product.product)

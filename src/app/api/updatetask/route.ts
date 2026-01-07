@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { odooConfig } from '@/utils/odooConfig';
 
 export const revalidate = 0;
 export const dynamic = 'force-dynamic';
@@ -36,7 +37,7 @@ interface OdooResponse<T> {
 
 export async function GET() {
   try {
-    const apiKey = process.env.ODOO_API_KEY_PROD;
+    const { apiKey, url, database } = odooConfig;
 
     if (!apiKey) {
       return NextResponse.json(
@@ -55,7 +56,7 @@ export async function GET() {
         service: 'object',
         method: 'execute_kw',
         args: [
-          'erbe',
+          database,
           2,
           apiKey,
           'project.project',
@@ -72,7 +73,7 @@ export async function GET() {
       id: Math.floor(Math.random() * 1000)
     };
 
-    const sourceProjectResponse = await fetch('https://erbe.odoo.com/jsonrpc', {
+    const sourceProjectResponse = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(searchSourceProjectBody),
@@ -113,7 +114,7 @@ export async function GET() {
         service: 'object',
         method: 'execute_kw',
         args: [
-          'erbe',
+          database,
           2,
           apiKey,
           'project.project',
@@ -130,7 +131,7 @@ export async function GET() {
       id: Math.floor(Math.random() * 1000)
     };
 
-    const destProjectResponse = await fetch('https://erbe.odoo.com/jsonrpc', {
+    const destProjectResponse = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(searchDestProjectBody),
@@ -171,7 +172,7 @@ export async function GET() {
         service: 'object',
         method: 'execute_kw',
         args: [
-          'erbe',
+          database,
           2,
           apiKey,
           'project.task',
@@ -188,7 +189,7 @@ export async function GET() {
       id: Math.floor(Math.random() * 1000)
     };
 
-    const tasksResponse = await fetch('https://erbe.odoo.com/jsonrpc', {
+    const tasksResponse = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(getTasksBody),
@@ -230,7 +231,7 @@ export async function GET() {
         service: 'object',
         method: 'execute_kw',
         args: [
-          'erbe',
+          database,
           2,
           apiKey,
           'project.task',
@@ -246,7 +247,7 @@ export async function GET() {
       id: Math.floor(Math.random() * 1000)
     };
 
-    const updateResponse = await fetch('https://erbe.odoo.com/jsonrpc', {
+    const updateResponse = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(updateTasksBody),

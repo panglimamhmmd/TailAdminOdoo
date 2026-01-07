@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { odooConfig } from '@/utils/odooConfig';
 
 export const revalidate = 0;
 export const dynamic = 'force-dynamic';
@@ -35,7 +36,7 @@ interface ProjectName {
 
 export async function GET() {
   try {
-    const apiKey = process.env.ODOO_API_KEY_PROD;
+    const { apiKey, url, database } = odooConfig;
 
     if (!apiKey) {
       return NextResponse.json(
@@ -51,7 +52,7 @@ export async function GET() {
         service: 'object',
         method: 'execute_kw',
         args: [
-          'erbe',
+          database,
           2,
           apiKey,
           'project.project',
@@ -67,9 +68,9 @@ export async function GET() {
         ]
       },
       id: Math.floor(Math.random() * 1000)
-    };{}
+    };
 
-    const response = await fetch('https://erbe.odoo.com/jsonrpc', {
+    const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(requestBody),

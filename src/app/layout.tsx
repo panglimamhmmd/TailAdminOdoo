@@ -4,14 +4,15 @@ import './globals.css';
 
 import { SidebarProvider } from '@/context/SidebarContext';
 import { ThemeProvider } from '@/context/ThemeContext';
+import { AuthProvider } from '@/context/AuthContext';
 
 const outfit = Outfit({
   subsets: ["latin"],
 });
 
 export const metadata: Metadata = {
-  title: "TailAdmin - Next.js Enterprise Dashboard",
-  description: "A comprehensive admin dashboard template built with Next.js and Tailwind CSS",
+  title: "Erbe Studio Dashboard",
+  description: "Erbe Studio ERP & Project Management Dashboard",
   manifest: "/manifest.webmanifest",
 };
 
@@ -31,7 +32,9 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${outfit.className} dark:bg-gray-900`}>
         <ThemeProvider>
-          <SidebarProvider>{children}</SidebarProvider>
+          <AuthProvider>
+            <SidebarProvider>{children}</SidebarProvider>
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>

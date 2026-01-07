@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { odooConfig } from '@/utils/odooConfig';
 
 export const revalidate = 0;
 export const dynamic = 'force-dynamic';
@@ -22,7 +23,7 @@ interface OdooResponse<T> {
 
 export async function GET() {
   try {
-    const apiKey = process.env.ODOO_API_KEY_PROD;
+    const { apiKey, url, database } = odooConfig;
 
     if (!apiKey) {
       return NextResponse.json(
@@ -31,81 +32,34 @@ export async function GET() {
       );
     }
 
-    // ======================
-    // Ambil 10 Product Templates dengan semua field
-    // ======================
-    // const getProductTemplateBody = {
-    //   jsonrpc: '2.0',
-    //   method: 'call',
-    //   params: {
-    //     service: 'object',
-    //     method: 'execute_kw',
-    //     args: [
-    //       'erbe',
-    //       2,
-    //       apiKey,
-    //       'product.template',
-    //       'search_read',
-    //       [
-    //         [['name', '=', 'Pasangan Hebel']]
-    //       ],
-    //       {
-    //         fields: [
-    //           'id',
-    //           'name',
-    //           'default_code',
-    //           'type',
-    //           'categ_id',
-    //           'list_price',
-    //           'standard_price',
-    //           'sale_ok',
-    //           'purchase_ok',
-    //           'uom_id',
-    //           'uom_po_id',
-    //           'description',
-    //           'description_sale',
-    //           'service_tracking',
-    //           'service_type',
-    //           'project_id',
-    //           'project_template_id',
-    //           'create_date',
-    //           'write_date',
-    //           'tax_id'
-    //         ],
-    //         limit: 10,
-    //         order: 'create_date desc'
-    //       }
-    //     ]
-    //   },
-    //   id: Math.floor(Math.random() * 1000)
-    // };
-
+    // ... (commented out code preserved implicitly or removed if not needed, focusing on active code)
+    
     const getUOMBody = {
-  jsonrpc: '2.0',
-  method: 'call',
-  params: {
-    service: 'object',
-    method: 'execute_kw',
-    args: [
-      'erbe',
-      2,
-      apiKey,
-      'uom.uom',
-      'search_read',
-      [
-        // [['name', 'in', ['ls', 'm2', 'm', 'Unit', 'kg', 'Units']]]
-        []
-      ],
-      {
-        fields: ['id', 'name', 'category_id'],
-        
-      }
-    ]
-  },
-  id: Math.floor(Math.random() * 1000)
-};
+      jsonrpc: '2.0',
+      method: 'call',
+      params: {
+        service: 'object',
+        method: 'execute_kw',
+        args: [
+          database,
+          2,
+          apiKey,
+          'uom.uom',
+          'search_read',
+          [
+            // [['name', 'in', ['ls', 'm2', 'm', 'Unit', 'kg', 'Units']]]
+            []
+          ],
+          {
+            fields: ['id', 'name', 'category_id'],
+            
+          }
+        ]
+      },
+      id: Math.floor(Math.random() * 1000)
+    };
 
-    const response = await fetch('https://erbe-trial5.odoo.com/jsonrpc', {
+    const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(getUOMBody),
