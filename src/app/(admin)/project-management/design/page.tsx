@@ -7,12 +7,19 @@ import {
   User, 
   ChevronRight,
   Filter,
-  Search
+  Search,
+  LayoutGrid, // For Kanban
+  List as ListIcon // For List
 } from "lucide-react";
+import StatCard from "@/components/dashboard/StatCard";
+import { BoxIconLine, GroupIcon, CheckCircleIcon, CloseIcon } from "@/icons";
+import KanbanBoard from "@/components/dashboard/KanbanBoard";
 
 // Matches API Response
 interface TransformedProject {
   name: string;
+  id?: number; // Added
+  stageId?: number; // Added
   hasDesign: boolean;
   statusDesign: string;
   progressDesign: number;
@@ -38,9 +45,27 @@ export default function DesignProjectPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
+  // View State
+  const [viewMode, setViewMode] = useState<"list" | "board">("list");
+  const [stages, setStages] = useState<{id: number, name: string}[]>([]);
+
   useEffect(() => {
      if (error) console.error("Error state:", error); 
   }, [error]);
+  
+  // Fetch Stages
+  useEffect(() => {
+    const fetchStages = async () => {
+        try {
+            const res = await fetch('/api/projectStages');
+            const json = await res.json();
+            if (json.success) setStages(json.stages);
+        } catch (e) {
+            console.error("Failed to fetch stages", e);
+        }
+    };
+    fetchStages();
+  }, []);
   
   // Filters
   const [activeFilter, setActiveFilter] = useState("In Progress");
@@ -51,16 +76,20 @@ export default function DesignProjectPage() {
       try {
         setLoading(true);
         const res = await fetch("/api/projectList");
-        if (!res.ok) throw new Error("Failed to fetch projects");
-        const data = await res.json();
+        if (!res.ok) {
+             const errData = await res.json().catch(() => ({}));
+             throw new Error(errData.error || `Failed to fetch projects: ${res.status}`);
+        }
+         const data = await res.json();
         
         if (data.success && data.projects) {
           // Filter only Design Projects
           setProjects(data.projects.filter((p: TransformedProject) => p.hasDesign));
         }
-      } catch (err) {
-        console.error(err);
-        setError("Failed to load design projects");
+      } catch (err: unknown) {
+        console.error("Fetch Logic Error:", err);
+        const errorMessage = err instanceof Error ? err.message : String(err);
+        setError(`Failed to load design projects: ${errorMessage}`);
       } finally {
         setLoading(false);
       }
@@ -91,6 +120,22 @@ export default function DesignProjectPage() {
     return false;
   });
 
+  const stats = {
+    total: projects.length,
+    inProgress: projects.filter(p => {
+       const s = (p.statusDesign || "").toLowerCase();
+       return !s.includes('done') && !s.includes('cancel') && !s.includes('complete');
+    }).length,
+    done: projects.filter(p => {
+       const s = (p.statusDesign || "").toLowerCase();
+       return s.includes('done') || s.includes('complete');
+    }).length,
+    cancelled: projects.filter(p => {
+       const s = (p.statusDesign || "").toLowerCase();
+       return s.includes('cancel');
+    }).length,
+  };
+
   if (loading) return (
     <div className="mx-auto max-w-7xl px-4 py-8 animate-pulse">
       <div className="h-8 bg-gray-200 rounded w-1/4 mb-6"></div>
@@ -102,6 +147,42 @@ export default function DesignProjectPage() {
 
   return (
     <div className="mx-auto max-w-7xl px-4 md:px-6 py-8">
+      {/* Stats Section */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+         <StatCard 
+            title="Total Projects" 
+            value={stats.total} 
+            icon={<BoxIconLine className="text-gray-800 dark:text-white" />} 
+            onClick={() => setActiveFilter("All")}
+            isActive={activeFilter === "All"}
+            color="default"
+         />
+         <StatCard 
+            title="In Progress" 
+            value={stats.inProgress} 
+            icon={<GroupIcon className="text-blue-600 dark:text-blue-400" />} 
+            onClick={() => setActiveFilter("In Progress")}
+            isActive={activeFilter === "In Progress"}
+            color="blue"
+         />
+         <StatCard 
+            title="Done" 
+            value={stats.done} 
+            icon={<CheckCircleIcon className="text-green-600 dark:text-green-400" />} 
+            onClick={() => setActiveFilter("Done")}
+            isActive={activeFilter === "Done"}
+            color="green"
+         />
+         <StatCard 
+            title="Cancelled" 
+            value={stats.cancelled} 
+            icon={<CloseIcon className="text-red-600 dark:text-red-400" />} 
+            onClick={() => setActiveFilter("Cancelled")}
+            isActive={activeFilter === "Cancelled"}
+            color="red"
+         />
+      </div>
+
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <div>
@@ -110,6 +191,24 @@ export default function DesignProjectPage() {
         </div>
         
         <div className="flex flex-col sm:flex-row gap-3">
+          {/* View Toggle */}
+          <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
+             <button
+               onClick={() => setViewMode("list")}
+               className={`p-2 rounded-md transition-all ${viewMode === "list" ? "bg-white dark:bg-gray-700 shadow text-blue-600 dark:text-blue-400" : "text-gray-500 hover:text-gray-700"}`}
+               title="List View"
+             >
+               <ListIcon className="w-4 h-4" />
+             </button>
+             <button
+               onClick={() => setViewMode("board")}
+               className={`p-2 rounded-md transition-all ${viewMode === "board" ? "bg-white dark:bg-gray-700 shadow text-blue-600 dark:text-blue-400" : "text-gray-500 hover:text-gray-700"}`}
+               title="Kanban Board"
+             >
+               <LayoutGrid className="w-4 h-4" />
+             </button>
+          </div>
+
           <div className="relative">
              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
              <input 
@@ -120,6 +219,7 @@ export default function DesignProjectPage() {
                className="pl-9 pr-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none w-full sm:w-64"
              />
           </div>
+          {viewMode === "list" && (
           <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
             {["To Do", "In Progress", "Done"].map((f) => (
               <button
@@ -135,10 +235,48 @@ export default function DesignProjectPage() {
               </button>
             ))}
           </div>
+          )}
         </div>
       </div>
 
-      {/* List Content */}
+      {/* Content */}
+      {viewMode === "board" ? (
+        <KanbanBoard 
+          projects={filteredProjects} 
+          stages={stages} 
+          onUpdateStage={async (projectId, newStageId) => {
+             // Find original project to get current stage for rollback if needed
+             // Optimistic Update
+             setProjects(prev => prev.map(p => {
+                 if (p.id === projectId) {
+                    // Update status string based on new stage ID to matching stage name
+                    const targetStage = stages.find(s => s.id === newStageId);
+                    return {
+                        ...p,
+                        stageId: newStageId,
+                        statusDesign: targetStage ? targetStage.name : p.statusDesign
+                    };
+                 }
+                 return p;
+             }));
+
+             try {
+                 const res = await fetch('/api/updateProjectStage', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ projectId, stageId: newStageId })
+                 });
+                 if (!res.ok) throw new Error("Update failed");
+             } catch (e) {
+                 console.error(e);
+                 alert("Failed to update status");
+                 // Revert logic could leverage reloading all projects
+                 // window.location.reload(); 
+             }
+          }}
+        />
+      ) : (
+      /* List Content */
       <div className="space-y-4">
         {filteredProjects.length === 0 ? (
           <div className="text-center py-16 bg-gray-50 dark:bg-gray-800/50 rounded-2xl border border-dashed border-gray-300 dark:border-gray-700">
@@ -249,6 +387,7 @@ export default function DesignProjectPage() {
           })
         )}
       </div>
+      )}
     </div>
   );
 }

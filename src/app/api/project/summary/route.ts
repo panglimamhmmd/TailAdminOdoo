@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server';
 
+export const revalidate = 0;
+export const dynamic = 'force-dynamic';
+
 // Types
 interface OdooResponse<T> {
   jsonrpc: string;
@@ -16,11 +19,12 @@ interface FinanceRecord {
 }
 
 interface ProjectRecord {
+  id: number;
   name: string;
-  tag_ids: [number, string];
+  tag_ids: number[];
   x_progress_project: number;
   x_studio_related_field_180_1j3l9t4is: number;
-  __count: number;
+  stage_id: [number, string] | false;
 }
 
 interface PaymentStatus {
@@ -33,12 +37,26 @@ interface PaymentStatus {
 interface ProjectSummary {
   projectName: string;
   category: string;
+  stage: string;
   RAB: number;
   progress: number;
   invoice: PaymentStatus;
   vendorBills: PaymentStatus;
   pekerja: PaymentStatus;
   pelaksana: PaymentStatus;
+  committedCosts: number;
+}
+
+interface CashFlowItem {
+  invoice_date_due: string;
+  amount_residual: number;
+  move_type: string;
+  x_studio_project_name_1: boolean | [number, string];
+}
+
+interface CommittedCostItem {
+  x_studio_project_name: [number, string] | false;
+  amount_total: number;
 }
 
 // Constants
@@ -66,7 +84,7 @@ const createEmptyPaymentStatus = (): PaymentStatus => ({
 });
 
 // Helper function to call Odoo API
-async function callOdooApi<T>(payload): Promise<T[]> {
+async function callOdooApi<T>(payload: Record<string, unknown>): Promise<T[]> {
   const response = await fetch(`https://erbe.odoo.com/jsonrpc`, {
     method: 'POST',
     headers: {
@@ -74,6 +92,7 @@ async function callOdooApi<T>(payload): Promise<T[]> {
       'X-Openerp-Session-Id': process.env.ODOO_API_KEY_PROD || '',
     },
     body: JSON.stringify(payload),
+    cache: 'no-store'
   });
 
   if (!response.ok) {
@@ -84,11 +103,23 @@ async function callOdooApi<T>(payload): Promise<T[]> {
   return data.result;
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    // Call both APIs in parallel
-    const [financeData, projectData] = await Promise.all([
-      // Finance API
+    const { searchParams } = new URL(request.url);
+    const startDate = searchParams.get('start_date');
+    const endDate = searchParams.get('end_date');
+
+    const dateFilter = [];
+    if (startDate) dateFilter.push(['date', '>=', startDate]);
+    if (endDate) dateFilter.push(['date', '<=', endDate]);
+
+    const poDateFilter = []; // PO uses date_order
+    if (startDate) poDateFilter.push(['date_order', '>=', startDate]);
+    if (endDate) poDateFilter.push(['date_order', '<=', endDate]);
+
+    // Call APIs in parallel
+    const [financeData, projectData, cashFlowData, committedCostsData] = await Promise.all([
+      // 1. Finance Aggregates (Existing)
       callOdooApi<FinanceRecord>({
         jsonrpc: '2.0',
         method: 'call',
@@ -101,13 +132,13 @@ export async function GET() {
             process.env.ODOO_API_KEY_PROD,
             'account.move',
             'read_group',
-            [[['state', '!=', 'cancel']], ['amount_total'], ['x_studio_project_name_1', 'journal_id', 'status_in_payment']],
+            [[['state', '!=', 'cancel'], ...dateFilter], ['amount_total'], ['x_studio_project_name_1', 'journal_id', 'status_in_payment']],
             { lazy: false },
           ],
         },
         id: 123,
       }),
-      // Project API
+      // 2. Project List (Existing)
       callOdooApi<ProjectRecord>({
         jsonrpc: '2.0',
         method: 'call',
@@ -119,16 +150,65 @@ export async function GET() {
             2,
             process.env.ODOO_API_KEY_PROD,
             'project.project',
-            'read_group',
+            'search_read',
             [
-              [['stage_id.name', '!=', 'Cancelled'], ['name', '!=', 'Internal']],
-              ['x_progress_project', 'x_studio_related_field_180_1j3l9t4is'],
-              ['name', 'tag_ids'],
+              [['stage_id.name', '!=', 'Cancelled'], ['name', '!=', 'Internal']]
             ],
-            { lazy: false },
+            { // options
+              fields: ['name', 'tag_ids', 'x_progress_project', 'x_studio_related_field_180_1j3l9t4is', 'stage_id'],
+            },
           ],
         },
-        id: 123,
+        id: 124,
+      }),
+      // 3. Cash Flow Data (New) - Detailed Unpaid Invoices/Bills with Dates
+      callOdooApi<CashFlowItem>({
+        jsonrpc: '2.0',
+        method: 'call',
+        params: {
+          service: 'object',
+          method: 'execute_kw',
+          args: [
+            'erbe',
+            2,
+            process.env.ODOO_API_KEY_PROD,
+            'account.move',
+            'search_read',
+            [
+               [['state', '=', 'posted'], ['payment_state', 'in', ['not_paid', 'partial']], ['move_type', 'in', ['out_invoice', 'in_invoice']]]
+            ],
+            {
+               fields: ['invoice_date_due', 'amount_residual', 'move_type', 'x_studio_project_name_1'],
+               limit: 300 // Safety limit
+            },
+          ],
+        },
+        id: 125,
+      }),
+      // 4. Committed Costs (New) - POs confirmed but not invoiced
+      callOdooApi<CommittedCostItem>({
+        jsonrpc: '2.0',
+        method: 'call',
+        params: {
+          service: 'object',
+          method: 'execute_kw',
+          args: [
+            'erbe',
+            2,
+            process.env.ODOO_API_KEY_PROD,
+            'purchase.order',
+            'read_group',
+            [
+               [['state', 'in', ['purchase', 'done']], ['invoice_status', '!=', 'invoiced'], ...poDateFilter]
+            ],
+            {
+               fields: ['amount_total'],
+               groupby: ['x_studio_project_name'],
+               lazy: false
+            },
+          ],
+        },
+        id: 126,
       }),
     ]);
 
@@ -200,39 +280,79 @@ export async function GET() {
       }
     }
 
+    // ... (previous code)
+
+    // Process Committed Costs
+    const committedCostsMap: Record<string, number> = {};
+    for (const record of committedCostsData) {
+       if (record.x_studio_project_name) {
+          committedCostsMap[record.x_studio_project_name[1]] = record.amount_total;
+       }
+    }
+
+    // Process Cash Flow
+    const cashFlow = {
+       incoming: [] as { date: string, amount: number }[],
+       outgoing: [] as { date: string, amount: number }[]
+    };
+
+    const today = new Date();
+    const thirtyDaysFromNow = new Date();
+    thirtyDaysFromNow.setDate(today.getDate() + 30);
+
+    for (const move of cashFlowData) {
+       if (!move.invoice_date_due) continue;
+       // We can return all, or filter here. Let's return all upcoming for flexibility.
+       
+       const item = { date: move.invoice_date_due, amount: move.amount_residual };
+       if (move.move_type === 'out_invoice') { // Customer Invoice -> Incoming
+          cashFlow.incoming.push(item);
+       } else if (move.move_type === 'in_invoice') { // Vendor Bill -> Outgoing
+          cashFlow.outgoing.push(item);
+       }
+    }
+
     // Build project summaries
     const projectSummaries: ProjectSummary[] = [];
 
     for (const project of projectData) {
       const projectName = project.name;
       const finance = groupedFinance[projectName] || {};
-      const categoryId = project.tag_ids[0];
+      const categoryId = project.tag_ids?.[0]; 
+      const stageName = Array.isArray(project.stage_id) ? project.stage_id[1] : 'Unknown';
+      
+      const committed = committedCostsMap[projectName] || 0;
 
       const summary: ProjectSummary = {
         projectName,
         category: TAG_MAP[categoryId] || 'Unknown',
+        stage: stageName,
         RAB: project.x_studio_related_field_180_1j3l9t4is || 0,
         progress: Math.round((project.x_progress_project || 0) * 100),
         invoice: finance.invoice || createEmptyPaymentStatus(),
         vendorBills: finance.vendorBills || createEmptyPaymentStatus(),
         pekerja: finance.pekerja || createEmptyPaymentStatus(),
         pelaksana: finance.pelaksana || createEmptyPaymentStatus(),
+        committedCosts: committed // New Field
       };
 
       projectSummaries.push(summary);
     }
 
+    // ... (Additional Info handling) ...
     // Add additional information if exists
     if (Object.keys(additionalInfo).length > 0) {
       const additionalSummary: ProjectSummary = {
         projectName: 'Additional Information',
         category: 'Others',
+        stage: 'N/A',
         RAB: 0,
         progress: 0,
         invoice: additionalInfo.invoice || createEmptyPaymentStatus(),
         vendorBills: additionalInfo.vendorBills || createEmptyPaymentStatus(),
         pekerja: additionalInfo.pekerja || createEmptyPaymentStatus(),
         pelaksana: additionalInfo.pelaksana || createEmptyPaymentStatus(),
+        committedCosts: 0
       };
 
       projectSummaries.push(additionalSummary);
@@ -241,6 +361,7 @@ export async function GET() {
     return NextResponse.json({
       success: true,
       data: projectSummaries,
+      cashFlow, // New Field
       timestamp: new Date().toISOString(),
     });
   } catch (error) {

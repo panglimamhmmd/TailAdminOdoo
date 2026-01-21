@@ -62,15 +62,21 @@ const AppSidebar: React.FC = () => {
   const { user } = useAuth();
 
   // Filter Nav Items based on Role
-  const filteredNavItems = navItems.map(item => {
+  // Filter Nav Items based on Role
+  const filteredNavItems = navItems.filter(item => {
+    // PM: Only show Odoo
+    if (user?.role === 'pm') {
+      return item.name === 'Odoo';
+    }
+    // BOD: Hide Odoo
+    if (user?.role === 'bod' && item.name === 'Odoo') {
+      return false;
+    }
+    return true;
+  }).map(item => {
     const newItem = { ...item };
     if (newItem.subItems) {
       newItem.subItems = newItem.subItems.filter(sub => {
-        // PM: Hide Finance
-        if (user?.role === 'pm') {
-          if (sub.path === '/projectfinance') return false;
-        }
-        
         // BOD: Hide Operations & Project Management (Only Finance & Dashboard)
         if (user?.role === 'bod') {
           if (sub.path === '/salesorderautomation') return false;

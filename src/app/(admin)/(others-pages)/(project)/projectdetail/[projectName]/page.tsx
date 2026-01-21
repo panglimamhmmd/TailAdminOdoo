@@ -14,8 +14,6 @@ import {
 } from 'lucide-react';
 import { ProjectData } from '@/types/project';
 import { ProjectStats } from '@/components/project-detail/ProjectStats';
-import { ProjectInfoCard, ClientInfoCard } from '@/components/project-detail/ProjectInfoCard';
-import { TaskProgressCard } from '@/components/project-detail/TaskProgressCard';
 import { FinanceOverview } from '@/components/project-detail/FinanceOverview';
 import { TaskList } from '@/components/project-detail/TaskList';
 
@@ -160,13 +158,38 @@ export default function ProjectDashboard() {
 
   const currentSubProject = data.subProjects[activeTab];
 
+  // --- Helper: Schedule Health Calculation ---
+  const getScheduleHealth = (details: { date_start?: string; date?: string; x_progress_project?: number } | undefined) => {
+    if (!details?.date_start || !details?.date) return null;
+    const start = new Date(details.date_start);
+    const end = new Date(details.date);
+    const now = new Date();
+    
+    if (now < start) return { status: 'Not Started', color: 'text-gray-500 bg-gray-100' };
+    if (now > end) return { status: 'Completed', color: 'text-emerald-600 bg-emerald-100' };
+
+    const totalDuration = end.getTime() - start.getTime();
+    const elapsed = now.getTime() - start.getTime();
+    const expectedProgress = (elapsed / totalDuration) * 100;
+    const actualProgress = details.x_progress_project || 0;
+
+    const variance = actualProgress - expectedProgress;
+
+    if (variance < -10) return { status: 'Behind Schedule', color: 'text-rose-600 bg-rose-100' };
+    if (variance > 5) return { status: 'Ahead of Schedule', color: 'text-emerald-600 bg-emerald-100' };
+    return { status: 'On Track', color: 'text-blue-600 bg-blue-100' };
+  };
+
+  const scheduleStatus = getScheduleHealth(currentSubProject?.details);
+
   return (
     <div className="min-h-screen">
-      <div className="mx-auto max-w-7xl p-4 md:p-6 lg:p-8">
+      <div className="mx-auto max-w-7xl p-2 md:p-6 lg:p-8">
         
-        {/* Header - Enhanced */}
-        <div className="mb-8">
-          <nav className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-3">
+        {/* Header - Enhanced with Metadata */}
+        <div className="mb-8 bg-white dark:bg-gray-900 rounded-2xl p-4 md:p-6 border border-gray-200 dark:border-gray-800 shadow-sm">
+          {/* Breadcrumb */}
+          <nav className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-6">
             <a href="/dashboard" className="hover:text-gray-900 dark:hover:text-white transition-colors flex items-center gap-1">
               <LayoutDashboard className="w-4 h-4" />
               Dashboard
@@ -176,10 +199,60 @@ export default function ProjectDashboard() {
               Project Details
             </span>
           </nav>
-          <div className="flex items-start justify-between">
-            <h1 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white tracking-tight">
-              {data.projectName}
-            </h1>
+
+          <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
+            <div>
+              <h1 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white tracking-tight mb-2">
+                {data.projectName}
+              </h1>
+              <p className="text-gray-500 dark:text-gray-400 text-sm mb-4 font-medium">
+                {currentSubProject.fullName}
+              </p>
+              
+              {/* Metadata Grid */}
+              <div className="flex flex-wrap gap-x-8 gap-y-4 text-sm">
+                <div className="flex flex-col gap-1">
+                   <span className="text-gray-500 dark:text-gray-400 font-medium">Project Manager</span>
+                   <span className="text-gray-900 dark:text-white font-semibold">
+                     {Array.isArray(currentSubProject?.details?.user_id) 
+                        ? currentSubProject.details.user_id[1] 
+                        : 'Unassigned'}
+                   </span>
+                </div>
+                <div className="flex flex-col gap-1">
+                   <span className="text-gray-500 dark:text-gray-400 font-medium">Client</span>
+                   <span className="text-gray-900 dark:text-white font-semibold">
+                     {Array.isArray(currentSubProject?.details?.partner_id) 
+                        ? currentSubProject.details.partner_id[1] 
+                        : 'Unknown Client'}
+                   </span>
+                </div>
+                <div className="flex flex-col gap-1">
+                   <span className="text-gray-500 dark:text-gray-400 font-medium">Timeline</span>
+                   <span className="text-gray-900 dark:text-white font-semibold">
+                      {currentSubProject?.details?.date_start || 'N/A'} — {currentSubProject?.details?.date || 'N/A'}
+                   </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Schedule Status Badge & Progress */}
+            <div className="flex flex-col items-end gap-3">
+              {scheduleStatus && (
+                 <div className={`px-4 py-2 rounded-xl flex items-center gap-2 font-semibold text-sm ${scheduleStatus.color}`}>
+                   <div className="w-2 h-2 rounded-full bg-current animate-pulse" />
+                   {scheduleStatus.status}
+                 </div>
+              )}
+              {currentSubProject.details?.x_progress_project !== undefined && (
+                <div className="text-right">
+                  <div className="text-2xl font-bold text-gray-900 dark:text-white">
+                    {(currentSubProject.details.x_progress_project).toFixed(1)}%
+                  </div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">Completion</div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -188,7 +261,7 @@ export default function ProjectDashboard() {
 
         {/* Tabs - Modern & Clean */}
         <div className="mb-6 overflow-x-auto pb-2 scrollbar-hide">
-          <div className="bg-white/50 dark:bg-gray-900/50 backdrop-blur-sm rounded-xl p-1.5 border border-gray-200 dark:border-gray-800 inline-flex gap-1 min-w-max">
+          <div className="bg-white dark:bg-gray-900 rounded-xl p-1.5 border border-gray-200 dark:border-gray-800 inline-flex gap-1 min-w-max shadow-sm">
             {data.subProjects.map((subProject, index) => {
               const isActive = activeTab === index;
               return (
@@ -197,17 +270,17 @@ export default function ProjectDashboard() {
                   onClick={() => setActiveTab(index)}
                   className={`flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
                     isActive
-                      ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm ring-1 ring-black/5 dark:ring-white/10'
-                      : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
+                      ? 'bg-brand-50 dark:bg-brand-500/10 text-brand-600 dark:text-brand-400 shadow-sm ring-1 ring-brand-200 dark:ring-transparent'
+                      : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-200'
                   }`}
                 >
-                  <span className={`${isActive ? 'text-blue-600 dark:text-blue-400 scale-110' : 'opacity-60'} transition-transform`}>
+                  <span className={`${isActive ? 'scale-110' : 'opacity-70'} transition-transform`}>
                     {getTypeIcon(subProject.type)}
                   </span>
                   <span>{subProject.soCode}</span>
-                  <span className={`px-2 py-0.5 rounded-md text-xs font-semibold uppercase tracking-wider ${
+                  <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider ${
                     isActive 
-                      ? getTypeColor(subProject.type)
+                      ? getTypeColor(subProject.type) // uses bg/color from config
                       : 'bg-gray-100 dark:bg-gray-800 text-gray-500'
                   }`}>
                     {subProject.type}
@@ -218,27 +291,14 @@ export default function ProjectDashboard() {
           </div>
         </div>
 
-        {/* Content Grid - Animated Entry */}
+        {/* Content Grid - Animated Entry - Stacked Layout */}
         {currentSubProject && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            {/* Finance Section */}
+            <FinanceOverview currentSubProject={currentSubProject} />
             
-            {/* Left Column */}
-            <div className="space-y-6">
-              <ProjectInfoCard 
-                currentSubProject={currentSubProject} 
-                getTypeIcon={getTypeIcon}
-                getTypeColor={getTypeColor}
-              />
-              <ClientInfoCard currentSubProject={currentSubProject} />
-              <TaskProgressCard currentSubProject={currentSubProject} />
-            </div>
-
-            {/* Middle & Right Columns */}
-            <div className="lg:col-span-2 space-y-6">
-              <FinanceOverview currentSubProject={currentSubProject} />
-              <TaskList currentSubProject={currentSubProject} />
-            </div>
-
+            {/* Tasks Section */}
+            <TaskList currentSubProject={currentSubProject} />
           </div>
         )}
 

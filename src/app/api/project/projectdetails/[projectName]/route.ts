@@ -56,6 +56,7 @@ interface SubProjectData {
   finances: {
     groups: FinanceGroup[];
     summary: FinanceSummary;
+    details: Record<string, unknown>[];
   };
   tasks: Task[];
   client: Client | null;
@@ -186,27 +187,40 @@ async function fetchProjectDetails(projectId: number): Promise<ProjectDetails | 
   return result[0] || null;
 }
 
-// Fetch finances using read_group (AGGREGATE)
+// Fetch finances using read_group (AGGREGATE) AND search_read (DETAILS)
 async function fetchProjectFinances(projectId: number): Promise<{
   groups: FinanceGroup[];
   summary: FinanceSummary;
+  details: Record<string, unknown>[]; // Using generic object instead of any
 }> {
-  const groups = await odooCall<FinanceGroup[]>(
-    'account.move',
-    'read_group',
-    [
-      [['x_studio_project_name_1', '=', projectId]]
-    ],
-    {
-      fields: ['amount_total'],
-      groupby: ['journal_id', 'status_in_payment'],
-      lazy: false,
-    }
-  );
+  // Parallel fetch: Grouped stats + Detailed list
+  const [groups, details] = await Promise.all([
+    odooCall<FinanceGroup[]>(
+      'account.move',
+      'read_group',
+      [[['x_studio_project_name_1', '=', projectId]]],
+      {
+        fields: ['amount_total'],
+        groupby: ['journal_id', 'status_in_payment'],
+        lazy: false,
+      }
+    ),
+    odooCall<Record<string, unknown>[]>(
+      'account.move',
+      'search_read',
+      [[['x_studio_project_name_1', '=', projectId]]],
+      {
+        fields: ['id', 'date', 'name', 'ref', 'partner_id', 'amount_total', 'payment_state', 'move_type', 'journal_id'],
+        order: 'date desc',
+        limit: 1000 // Increased limit to ensure all transactions (including older invoices) are fetched
+      }
+    )
+  ]);
 
   return {
     groups,
     summary: aggregateFinances(groups),
+    details,
   };
 }
 
@@ -312,6 +326,7 @@ export async function GET(
                 byStatus: {},
                 byJournal: {},
               },
+              details: [],
             },
             tasks: [],
             client: null,

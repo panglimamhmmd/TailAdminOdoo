@@ -33,6 +33,7 @@ interface ProjectDetail {
   x_studio_related_field_180_1j3l9t4is?: string;
   x_progress_project?: number;
   x_studio_person_in_charge_pic?:  number[]; // IDs
+  sale_order_id?: [number, string];
 }
 
 interface AccountMove {
@@ -54,6 +55,9 @@ interface ProjectTask {
   date_deadline?: string;
   priority?: string;
   x_studio_persentase?: number;
+  x_studio_progress?: number;
+  x_studio_bobot?: number;
+  date_assign?: string;
 }
 
 interface PaymentStatusGroup {
@@ -87,7 +91,8 @@ interface InvoiceSummary {
 
 interface DetailedProject {
   project: ProjectDetail | null;
-  pic_names: string[]; // Added field
+  pic_names: string[];
+  pic_ids: number[]; // Added field
   invoices: AccountMove[];
   invoice_summary: InvoiceSummary;
   tasks: ProjectTask[];
@@ -313,7 +318,7 @@ export async function GET(
           const projectDetail = await fetchOdooData<ProjectDetail>(
             "project.project",
             [["id", "=", projectId]],
-            ["id", "name", "stage_id", "user_id", "partner_id", "date_start", "date", "tag_ids" , "x_studio_related_field_180_1j3l9t4is" , "x_progress_project", "x_studio_person_in_charge_pic"]
+            ["id", "name", "stage_id", "user_id", "partner_id", "date_start", "date", "tag_ids", "x_studio_related_field_180_1j3l9t4is", "x_progress_project", "x_studio_person_in_charge_pic", "sale_order_id"]
           );
           
           // Fetch PIC Names
@@ -339,10 +344,12 @@ export async function GET(
             ["id", "name", "amount_total", "state", "invoice_date", "partner_id", "payment_state", "journal_id"]
           );
 
+
+
           const projectTasks = await fetchOdooData<ProjectTask>(
             "project.task",
             [["project_id", "=", projectId]],
-            ["id", "name", "stage_id", "user_ids", "date_deadline", "priority" , "x_studio_persentase"]
+            ["id", "name", "stage_id", "user_ids", "date_deadline", "priority" , "x_studio_persentase", "x_studio_progress", "x_studio_bobot", "date_assign"]
           );
 
           const invoiceSummary = groupAndSummarizeInvoices(accountMoves);
@@ -350,6 +357,7 @@ export async function GET(
           return {
             project: projectDetail[0] || null,
             pic_names: picNames,
+            pic_ids: picIds, // Added field
             invoices: accountMoves || [],
             invoice_summary: invoiceSummary,
             tasks: projectTasks || [],
@@ -361,6 +369,7 @@ export async function GET(
           return {
             project: { id: projectId, name: project.name || "" },
             pic_names: [],
+            pic_ids: [], // Added fallback
             invoices: [],
             invoice_summary: {
               journals: [],

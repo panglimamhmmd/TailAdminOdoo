@@ -1,22 +1,22 @@
-import { Zap } from 'lucide-react';
+import { FolderOpen } from 'lucide-react';
 
-interface PageProps {
-  params: Promise<{
-    projectname: string;
-  }>;
-}
-export default function ProjectDetailPage({ }: PageProps) {
+export default function ProjectDetailPage() {
   return (
-    <div className="flex items-center justify-center min-h-screen">
-      <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-6 flex items-start gap-4 max-w-lg">
-        <Zap className="w-6 h-6 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-1" />
-        <div>
-          <h3 className="font-semibold text-blue-900 dark:text-blue-300 mb-2">
-            Click on different projects in the sidebar
-          </h3>
-          <p className="text-sm text-blue-800 dark:text-blue-400">
-            Select any project from the list on the left to view its details and track progress.
-          </p>
+    <div className="flex items-center justify-center h-full min-h-[60vh] text-center p-6">
+      <div className="max-w-md w-full">
+        <div className="flex items-center justify-center w-20 h-20 mx-auto mb-6 bg-brand-50 rounded-full dark:bg-brand-500/10">
+          <FolderOpen className="w-10 h-10 text-brand-500" />
+        </div>
+        <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+          Select a Project
+        </h3>
+        <p className="text-gray-500 dark:text-gray-400 mb-8 leading-relaxed">
+          Choose a project from the sidebar to view its detailed analytics, timelines, and financial reports.
+        </p>
+        
+        {/* Optional: Add a subtle arrow pointing left on desktop to prompt action */}
+        <div className="hidden lg:block animate-pulse text-brand-500 text-sm font-medium">
+          ← Select from the list
         </div>
       </div>
     </div>

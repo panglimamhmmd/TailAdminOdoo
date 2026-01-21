@@ -6,15 +6,29 @@ interface TaskListProps {
 }
 
 export const TaskList: React.FC<TaskListProps> = ({ currentSubProject }) => {
-  const [isTasksOpen, setIsTasksOpen] = useState(false);
+  const [isTasksOpen, setIsTasksOpen] = useState(true);
 
   return (
     <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 overflow-hidden">
-      <div className="p-6 border-b border-gray-200 dark:border-gray-800">
+      <div className="p-4 md:p-6 border-b border-gray-200 dark:border-gray-800">
         <div className="flex items-center justify-between">
           <div>
             <h3 className="font-semibold text-gray-900 dark:text-white mb-1">Tasks</h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400">{currentSubProject.tasks.length} total tasks</p>
+            {(() => {
+               const completed = currentSubProject.tasks.filter(t => (t.x_studio_persentase || 0) === 100).length;
+               const total = currentSubProject.tasks.length;
+               const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
+               return (
+                 <div className="flex items-center gap-2 text-sm">
+                   <span className="font-medium text-emerald-600 dark:text-emerald-400">{completed} Completed</span>
+                   <span className="text-gray-300 dark:text-gray-600">/</span>
+                   <span className="text-gray-500 dark:text-gray-400">{total} Total</span>
+                   <span className="ml-1 text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-500 font-medium">
+                     {percent}%
+                   </span>
+                 </div>
+               );
+            })()}
           </div>
           <button
             onClick={() => setIsTasksOpen(!isTasksOpen)}
@@ -34,16 +48,16 @@ export const TaskList: React.FC<TaskListProps> = ({ currentSubProject }) => {
       </div>
       
       {isTasksOpen && (
-        <div className="p-6">
+        <div className="p-4 md:p-6">
           {currentSubProject.tasks.length > 0 ? (
             <div className="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-800">
-              <div className="max-h-96 overflow-y-auto">
+              <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead className="sticky top-0 bg-gray-50 dark:bg-gray-800/50 z-10">
                     <tr>
                       <th className="text-left py-3 px-4 text-xs font-semibold text-gray-700 dark:text-gray-300">Task Name</th>
-                      <th className="text-right py-3 px-4 text-xs font-semibold text-gray-700 dark:text-gray-300">Persentase</th>
-                      <th className="text-right py-3 px-4 text-xs font-semibold text-gray-700 dark:text-gray-300">Bobot</th>
+                      <th className="hidden md:table-cell text-right py-3 px-4 text-xs font-semibold text-gray-700 dark:text-gray-300">Persentase</th>
+                      <th className="hidden md:table-cell text-right py-3 px-4 text-xs font-semibold text-gray-700 dark:text-gray-300">Bobot</th>
                       <th className="text-right py-3 px-4 text-xs font-semibold text-gray-700 dark:text-gray-300">Progress</th>
                     </tr>
                   </thead>
@@ -51,12 +65,12 @@ export const TaskList: React.FC<TaskListProps> = ({ currentSubProject }) => {
                     {currentSubProject.tasks.map((task) => (
                       <tr key={task.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
                         <td className="py-3 px-4 text-sm text-gray-900 dark:text-white">{task.name}</td>
-                        <td className="py-3 px-4 text-sm text-gray-600 dark:text-gray-400 text-right font-mono">
+                        <td className="hidden md:table-cell py-3 px-4 text-sm text-gray-600 dark:text-gray-400 text-right font-mono">
                           {task.x_studio_persentase !== undefined && task.x_studio_persentase !== null
                             ? task.x_studio_persentase.toFixed(3)
                             : '-'}
                         </td>
-                        <td className="py-3 px-4 text-sm text-gray-600 dark:text-gray-400 text-right font-mono">
+                        <td className="hidden md:table-cell py-3 px-4 text-sm text-gray-600 dark:text-gray-400 text-right font-mono">
                           {task.x_studio_bobot !== undefined && task.x_studio_bobot !== null
                             ? task.x_studio_bobot.toFixed(3)
                             : '-'}

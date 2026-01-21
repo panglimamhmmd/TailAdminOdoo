@@ -36,6 +36,18 @@ export interface ProjectDetails {
     x_progress_project?: number;
 }
 
+export interface FinanceDetail {
+    id: number;
+    date: string;
+    name: string;
+    ref: string | boolean;
+    partner_id: [number, string] | false;
+    amount_total: number;
+    payment_state: string;
+    move_type: string;
+    journal_id: [number, string];
+}
+
 export interface SubProject {
     id: number;
     soCode: string;
@@ -45,6 +57,7 @@ export interface SubProject {
     finances: {
         groups: FinanceGroup[];
         summary: FinanceSummary;
+        details: FinanceDetail[];
     };
     tasks: Task[];
     client: Client | null;

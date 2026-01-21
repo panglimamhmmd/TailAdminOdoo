@@ -16,14 +16,8 @@ interface OdooProject {
   date_start: string | false;
   date: string | false;
   stage_id: [number, string] | false;
-  x_studio_person_in_charge_pic?: [number, string][]; // Many2many usually returns array of [id, name] tuples in search_read if configured, or just ids. Let's assume standard behavior or request behavior.
-  // Actually standard search_read for M2M returns IDs array [1, 2] usually.
-  // But if we want names, we might need to fetch ‘res.users’ or depend on context.
-  // Let's assume it returns IDs first, and we might need to fetch names if not provided.
-  // WAIT: User said "name of the fields is x_studio_person_in_charge_pic".
-  // If we assume it behaves like standard M2M in search_read, it returns [id1, id2]. 
-  // Exception: if valid read (not search_read), it might differ. But search_read usually just IDs.
-  // Let's try to fetch it first.
+  x_studio_person_in_charge_pic?: [number, string][]; 
+  user_id?: [number, string]; // Standard Project Manager field
 }
 
 interface OdooTask {
@@ -54,6 +48,7 @@ interface SubProject {
   deadline: string | false;
   start_date: string | false;
   stage: string;
+  stageId: number | false;
   pic: string[]; // List of PIC names
   nextTask?: {
     name: string;
@@ -69,6 +64,8 @@ interface GroupedProject {
 
 interface TransformedProject {
   name: string;
+  id?: number; 
+  stageId?: number;
   progressDesign: number;
   progressConstruction: number;
   progressInterior: number;
@@ -122,10 +119,13 @@ export async function GET() {
           'project.project',
           'search_read',
           [
-            [['stage_id', '!=', 4], ['name', '!=', 'Internal']]
+            // Fetch all projects to allow proper counting
+             []
           ],
           {
-            fields: ['id', 'name', 'tag_ids', 'x_progress_project', 'date_start', 'date', 'stage_id', 'x_studio_person_in_charge_pic'],
+            fields: odooConfig.label === 'DEMO' 
+                ? ['id', 'name', 'tag_ids', 'x_progress_project', 'date_start', 'date', 'stage_id', 'user_id']
+                : ['id', 'name', 'tag_ids', 'x_progress_project', 'date_start', 'date', 'stage_id', 'x_studio_person_in_charge_pic'],
             limit: 50,
             order: 'create_date asc'
           }
@@ -181,13 +181,10 @@ export async function GET() {
       id: 2
     };
 
-    // 3. Fetch Users (for PIC names) if x_studio... returns IDs
-    // Since we don't know the IDs yet, we might need to fetch all users or look them up.
-    // Optimization: Check if projects have usage of this field.
-    // Assumption: Odoo M2M search_read often returns just IDs. We need a way to map ID -> Name.
-    // Let's fetch 'res.users' or 'res.partner' (depending on what PIC points to, likely res.users).
-    // Let's assume it points to res.users.
-    
+    // 3. Fetch Users (for PIC names)
+    // If DEMO/Trial, we might rely on user_id (M2O [id, name]).
+    // If PROD, we use x_studio_person_in_charge_pic (M2M [id, id]).
+
     const tasksRes = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -200,15 +197,23 @@ export async function GET() {
     // Collect all PIC IDs
     const allPicIds = new Set<number>();
     projects.forEach(p => {
-       // Odoo M2M in search_read is usually just array of IDs: [1, 5]
-       // Casting to unknown first to avoid TS errors if definition differs
-       const pics = (p.x_studio_person_in_charge_pic as unknown as number[]) || [];
-       if (Array.isArray(pics)) {
-         pics.forEach(id => typeof id === 'number' && allPicIds.add(id));
+       if (odooConfig.label === 'DEMO') {
+          // Use user_id (Many2one) -> returns [id, name] or false
+          const userId = p.user_id;
+          if (Array.isArray(userId) && userId.length === 2) {
+             // For M2O, we already have the name! No need to fetch if we trust it.
+             // But to be consistent with map, we can just use the name directly later.
+          }
+       } else {
+           // Odoo M2M in search_read is usually just array of IDs: [1, 5]
+           const pics = (p.x_studio_person_in_charge_pic as unknown as number[]) || [];
+           if (Array.isArray(pics)) {
+             pics.forEach(id => typeof id === 'number' && allPicIds.add(id));
+           }
        }
     });
 
-    // Fetch Names for these IDs
+    // Fetch Names for these IDs (Only needed for x_studio... IDs)
     const userMap: Record<number, string> = {};
     if (allPicIds.size > 0) {
       const usersBody = {
@@ -221,7 +226,7 @@ export async function GET() {
             database,
             2,
             apiKey,
-            'hr.employee', // Switch to hr.employee based on user feedback ("employee user") and failure of res.users
+            'hr.employee',
             'search_read',
             [
               [['id', 'in', Array.from(allPicIds)]]
@@ -267,9 +272,18 @@ export async function GET() {
     };
 
     const getPicNames = (p: OdooProject) => {
-       const ids = (p.x_studio_person_in_charge_pic as unknown as number[]) || [];
-       if (!Array.isArray(ids)) return [];
-       return ids.map(id => userMap[id] || `Employee ${id}`);
+       if (odooConfig.label === 'DEMO') {
+          // use user_id [id, name]
+          const userId = p.user_id;
+          if (Array.isArray(userId) && userId.length === 2) {
+             return [userId[1]];
+          }
+          return [];
+       } else {
+           const ids = (p.x_studio_person_in_charge_pic as unknown as number[]) || [];
+           if (!Array.isArray(ids)) return [];
+           return ids.map(id => userMap[id] || `Employee ${id}`);
+       }
     };
 
     // ======================
@@ -304,6 +318,7 @@ export async function GET() {
         deadline: item.date,
         start_date: item.date_start,
         stage: Array.isArray(item.stage_id) ? item.stage_id[1] : 'Unknown',
+        stageId: Array.isArray(item.stage_id) ? item.stage_id[0] : false,
         pic: getPicNames(item),
         nextTask: getNextTask(item.id)
       });
@@ -324,6 +339,10 @@ export async function GET() {
 
         return {
           name: project.main_project,
+          
+          id: designProject?.id,
+          stageId: typeof designProject?.stageId === 'number' ? designProject.stageId : undefined,
+
           // Design
           progressDesign: designProject ? Math.round(designProject.progress * 100) : 0,
           deadlineDesign: designProject?.deadline || false,
@@ -364,7 +383,7 @@ export async function GET() {
   } catch (error) {
     console.error('Error fetching projects:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch projects from Odoo' },
+      { error: `Failed to fetch projects from Odoo: ${error instanceof Error ? error.message : String(error)}` },
       { status: 500 }
     );
   }

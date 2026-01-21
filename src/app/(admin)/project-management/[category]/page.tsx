@@ -3,6 +3,8 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Clock, Filter, Search } from "lucide-react";
+import StatCard from "@/components/dashboard/StatCard";
+import { BoxIconLine, GroupIcon, CheckCircleIcon, CloseIcon } from "@/icons";
 
 // Types matching the API response
 interface TransformedProject {
@@ -111,6 +113,23 @@ export default function ProjectCategoryPage() {
     return <span className={`text-sm font-medium ${days <= 7 ? 'text-orange-500' : 'text-green-600 dark:text-green-400'}`}>{days} days left</span>;
   };
 
+  // Stats Calculation
+  const stats = {
+    total: projects.length,
+    inProgress: projects.filter(p => {
+       const s = getStatus(p).toLowerCase();
+       return !s.includes('done') && !s.includes('cancel') && !s.includes('complete');
+    }).length,
+    done: projects.filter(p => {
+       const s = getStatus(p).toLowerCase();
+       return s.includes('done') || s.includes('complete');
+    }).length,
+    cancelled: projects.filter(p => {
+       const s = getStatus(p).toLowerCase();
+       return s.includes('cancel');
+    }).length,
+  };
+
   // Filter Logic
   const filteredProjects = projects.filter(p => {
     // 1. Search Query
@@ -142,6 +161,43 @@ export default function ProjectCategoryPage() {
 
   return (
     <div className="mx-auto max-w-7xl px-4 md:px-6 2xl:px-10">
+      
+      {/* Stats Section */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+         <StatCard 
+            title="Total Projects" 
+            value={stats.total} 
+            icon={<BoxIconLine className="text-gray-800 dark:text-white" />} 
+            onClick={() => setActiveFilter("All")}
+            isActive={activeFilter === "All"}
+            color="default"
+         />
+         <StatCard 
+            title="In Progress" 
+            value={stats.inProgress} 
+            icon={<GroupIcon className="text-blue-600 dark:text-blue-400" />} 
+            onClick={() => setActiveFilter("In Progress")}
+            isActive={activeFilter === "In Progress"}
+            color="blue"
+         />
+         <StatCard 
+            title="Done" 
+            value={stats.done} 
+            icon={<CheckCircleIcon className="text-green-600 dark:text-green-400" />} 
+            onClick={() => setActiveFilter("Done")}
+            isActive={activeFilter === "Done"}
+            color="green"
+         />
+         <StatCard 
+            title="Cancelled" 
+            value={stats.cancelled} 
+            icon={<CloseIcon className="text-red-600 dark:text-red-400" />} 
+            onClick={() => setActiveFilter("Cancelled")}
+            isActive={activeFilter === "Cancelled"}
+            color="red"
+         />
+      </div>
+
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
           {categoryTitle} Projects
